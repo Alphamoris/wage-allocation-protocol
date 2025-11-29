@@ -1,0 +1,726 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* LIGHT THEME COLOR PALETTE */
+  /* Primary Colors - Warm & Vibrant */
+  --color-wap-gold: #F4A259;
+  --color-wap-coral: #E85A4F;
+  --color-wap-pink: #F2B5D4;
+  --color-wap-navy: #2B4570;
+  --color-wap-sky: #6BB3D9;
+
+  /* Light Theme Backgrounds */
+  --color-wap-cream: #FDF8F3;
+  --color-wap-white: #FFFFFF;
+  --color-wap-card: #FFFFFF;
+  --color-wap-hover: #F5EDE6;
+  --color-wap-section: #FAF6F1;
+
+  /* Success/Warning/Error */
+  --color-wap-green: #2D9F6C;
+  --color-wap-amber: #E8A838;
+  --color-wap-red: #E85A4F;
+
+  /* Text Colors - Light Theme */
+  --color-wap-text-primary: #1A1A2E;
+  --color-wap-text-secondary: #4A5568;
+  --color-wap-text-tertiary: #718096;
+  --color-wap-text-disabled: #A0AEC0;
+
+  /* Border & Shadow */
+  --color-wap-border: #E8DED4;
+  --color-wap-border-light: #F0E6DC;
+  --color-wap-shadow: rgba(43, 69, 112, 0.08);
+}
+
+:root {
+  --background: #FDF8F3;
+  --foreground: #1A1A2E;
+
+  --card: #FFFFFF;
+  --card-foreground: #1A1A2E;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A2E;
+
+  --primary: #E85A4F;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #2B4570;
+  --secondary-foreground: #FFFFFF;
+
+  --muted: #F5EDE6;
+  --muted-foreground: #4A5568;
+
+  --accent: #6BB3D9;
+  --accent-foreground: #1A1A2E;
+
+  --destructive: #E85A4F;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E8DED4;
+  --input: #E8DED4;
+  --ring: #6BB3D9;
+
+  --radius: 0.75rem;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/* ========================================
+   UNIQUE GLASS MORPHISM 2.0 - LIGHT THEME
+   ======================================== */
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(253, 248, 243, 0.98) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(232, 222, 212, 0.6);
+  box-shadow: 
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+    0 4px 24px -4px rgba(43, 69, 112, 0.08),
+    0 12px 48px -8px rgba(43, 69, 112, 0.05);
+}
+
+/* Animated Border Gradient Card - Light Theme */
+.card-glow {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.card-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1.5rem;
+  padding: 2px;
+  background: linear-gradient(135deg, #E85A4F, #F4A259, #F2B5D4, #6BB3D9, #E85A4F);
+  background-size: 400% 400%;
+  animation: gradient-rotate 8s linear infinite;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.card-glow:hover::before {
+  opacity: 0.8;
+}
+
+/* Hexagon Pattern Background - Light Theme */
+.hex-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23E85A4F' fill-opacity='0.04'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ========================================
+   TEXT EFFECTS - LIGHT THEME
+   ======================================== */
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #E85A4F 0%, #F4A259 50%, #E85A4F 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer 3s linear infinite;
+}
+
+.text-gradient-coral {
+  background: linear-gradient(135deg, #E85A4F 0%, #F2B5D4 50%, #E85A4F 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer 3s linear infinite;
+}
+
+.text-gradient-sky {
+  background: linear-gradient(135deg, #2B4570 0%, #6BB3D9 50%, #2B4570 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer 3s linear infinite;
+}
+
+/* Subtle Text Glow - Light Theme */
+.text-neon {
+  text-shadow: 
+    0 2px 8px rgba(232, 90, 79, 0.2),
+    0 4px 16px rgba(232, 90, 79, 0.1);
+}
+
+/* ========================================
+   BACKGROUND EFFECTS - LIGHT THEME
+   ======================================== */
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #E85A4F 0%, #F4A259 100%);
+}
+
+.bg-gradient-secondary {
+  background: linear-gradient(135deg, #2B4570 0%, #6BB3D9 100%);
+}
+
+.bg-gradient-accent {
+  background: linear-gradient(135deg, #F2B5D4 0%, #E85A4F 100%);
+}
+
+.bg-gradient-warm {
+  background: linear-gradient(135deg, #F4A259 0%, #E85A4F 50%, #F2B5D4 100%);
+}
+
+/* Mesh Gradient Background - Light Theme */
+.bg-mesh {
+  background-color: #FDF8F3;
+  background-image: 
+    radial-gradient(at 40% 20%, rgba(232, 90, 79, 0.08) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, rgba(244, 162, 89, 0.06) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, rgba(107, 179, 217, 0.06) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, rgba(242, 181, 212, 0.06) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(232, 90, 79, 0.05) 0px, transparent 50%),
+    radial-gradient(at 80% 100%, rgba(43, 69, 112, 0.08) 0px, transparent 50%);
+}
+
+/* Aurora Background - Light Theme */
+.bg-aurora {
+  background: 
+    linear-gradient(125deg, rgba(232, 90, 79, 0.04) 0%, transparent 40%),
+    linear-gradient(245deg, rgba(244, 162, 89, 0.04) 0%, transparent 40%),
+    linear-gradient(305deg, rgba(107, 179, 217, 0.06) 0%, transparent 40%),
+    linear-gradient(65deg, rgba(242, 181, 212, 0.04) 0%, transparent 40%),
+    #FDF8F3;
+}
+
+/* Noise Texture Overlay */
+.noise-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.02;
+  pointer-events: none;
+}
+
+/* ========================================
+   GLOW EFFECTS - LIGHT THEME (Subtle Shadows)
+   ======================================== */
+
+.glow-gold {
+  box-shadow: 
+    0 4px 20px rgba(244, 162, 89, 0.2),
+    0 8px 40px rgba(244, 162, 89, 0.1);
+}
+
+.glow-coral {
+  box-shadow: 
+    0 4px 20px rgba(232, 90, 79, 0.2),
+    0 8px 40px rgba(232, 90, 79, 0.1);
+}
+
+.glow-sky {
+  box-shadow: 
+    0 4px 20px rgba(107, 179, 217, 0.2),
+    0 8px 40px rgba(107, 179, 217, 0.1);
+}
+
+.glow-pink {
+  box-shadow: 
+    0 4px 20px rgba(242, 181, 212, 0.25),
+    0 8px 40px rgba(242, 181, 212, 0.12);
+}
+
+/* Pulsing Glow Ring - Light Theme */
+.glow-ring {
+  position: relative;
+}
+
+.glow-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #E85A4F, #F4A259, #F2B5D4, #6BB3D9);
+  background-size: 400% 400%;
+  animation: gradient-rotate 4s linear infinite;
+  filter: blur(15px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.glow-ring:hover::before {
+  opacity: 0.35;
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-10px) rotate(1deg); }
+  75% { transform: translateY(-5px) rotate(-1deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(241, 91, 66, 0.3), 0 0 60px rgba(241, 91, 66, 0.1);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(241, 91, 66, 0.5), 0 0 80px rgba(241, 91, 66, 0.2);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes text-shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes gradient-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes border-dance {
+  0%, 100% { 
+    clip-path: inset(0 0 95% 0);
+  }
+  25% { 
+    clip-path: inset(0 0 0 95%);
+  }
+  50% { 
+    clip-path: inset(95% 0 0 0);
+  }
+  75% { 
+    clip-path: inset(0 95% 0 0);
+  }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(150px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(150px) rotate(-360deg); }
+}
+
+@keyframes morph {
+  0%, 100% { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+  25% { border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%; }
+  50% { border-radius: 50% 60% 30% 60% / 30% 60% 70% 40%; }
+  75% { border-radius: 60% 40% 60% 30% / 70% 30% 50% 60%; }
+}
+
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-morph {
+  animation: morph 8s ease-in-out infinite;
+}
+
+.animate-orbit {
+  animation: orbit 20s linear infinite;
+}
+
+/* ========================================
+   UNIQUE CARD VARIANTS - LIGHT THEME
+   ======================================== */
+
+/* Holographic Card - Light */
+.card-holographic {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgba(43, 69, 112, 0.06);
+}
+
+.card-holographic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(244, 162, 89, 0.08) 25%,
+    transparent 30%,
+    rgba(232, 90, 79, 0.06) 45%,
+    transparent 50%,
+    rgba(107, 179, 217, 0.08) 55%,
+    transparent 60%,
+    rgba(242, 181, 212, 0.08) 75%,
+    transparent 80%
+  );
+  background-size: 200% 200%;
+  animation: holographic 6s ease-in-out infinite;
+}
+
+@keyframes holographic {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+
+/* Modern Card - Light */
+.card-cyber {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 1px solid rgba(232, 222, 212, 0.6);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 24px rgba(43, 69, 112, 0.06);
+}
+
+.card-cyber::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: linear-gradient(90deg, #E85A4F, #F4A259, #F2B5D4);
+}
+
+.card-cyber::after {
+  display: none;
+}
+
+/* Frosted Card with Subtle Shine */
+.card-frosted {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(253, 248, 243, 0.95) 100%);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(232, 222, 212, 0.5);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(43, 69, 112, 0.04);
+}
+
+.card-frosted::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(244, 162, 89, 0.02), transparent);
+  animation: scan 4s linear infinite;
+  pointer-events: none;
+}
+
+/* ========================================
+   UNIQUE BUTTONS - LIGHT THEME
+   ======================================== */
+
+.btn-liquid {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-liquid::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s ease, height 0.6s ease;
+}
+
+.btn-liquid:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* ========================================
+   SPECIAL ELEMENTS - LIGHT THEME
+   ======================================== */
+
+/* Animated Counter Box */
+.counter-box {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 2px solid transparent;
+  border-radius: 2rem;
+  background-clip: padding-box;
+  box-shadow: 0 8px 40px rgba(43, 69, 112, 0.08);
+}
+
+.counter-box::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 2rem;
+  background: conic-gradient(from 0deg, #E85A4F, #F4A259, #F2B5D4, #6BB3D9, #E85A4F);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: gradient-rotate 4s linear infinite;
+  opacity: 0.6;
+}
+
+/* Blob Shape */
+.blob {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  animation: morph 8s ease-in-out infinite;
+}
+
+/* Grid Lines Background - Light Theme */
+.grid-lines {
+  background-image: 
+    linear-gradient(rgba(232, 90, 79, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232, 90, 79, 0.04) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Dot Pattern - Light Theme */
+.dot-pattern {
+  background-image: radial-gradient(rgba(43, 69, 112, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ========================================
+   SCROLLBAR STYLING - LIGHT THEME
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5EDE6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #E85A4F, #F4A259);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #F4A259, #E85A4F);
+}
+
+/* ========================================
+   SELECTION STYLING - LIGHT THEME
+   ======================================== */
+
+::selection {
+  background: rgba(232, 90, 79, 0.15);
+  color: #1A1A2E;
+}
+
+/* ========================================
+   SPECTACULAR CARD VARIANTS - LIGHT THEME
+   ======================================== */
+
+/* Mesh Gradient Card */
+.mesh-gradient-coral {
+  position: relative;
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(232, 90, 79, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(244, 162, 89, 0.06), transparent),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 1px solid rgba(232, 222, 212, 0.6);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(43, 69, 112, 0.06);
+}
+
+/* Orbital Glow Card - Light Theme */
+.card-orbital-glow {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 1px solid rgba(232, 222, 212, 0.5);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(43, 69, 112, 0.06);
+}
+
+.card-orbital-glow::before,
+.card-orbital-glow::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.card-orbital-glow::before {
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  border: 1px solid rgba(244, 162, 89, 0.1);
+  animation: orbit-slow 20s linear infinite;
+}
+
+.card-orbital-glow::after {
+  top: -25%;
+  left: -25%;
+  width: 150%;
+  height: 150%;
+  border: 1px dashed rgba(232, 90, 79, 0.08);
+  animation: orbit-slow 15s linear infinite reverse;
+}
+
+@keyframes orbit-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Neon Border Cards - Light Theme (Subtle) */
+.neon-border-gold {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 2px solid rgba(244, 162, 89, 0.4);
+  box-shadow: 
+    0 4px 20px rgba(244, 162, 89, 0.12),
+    inset 0 0 20px rgba(244, 162, 89, 0.02);
+}
+
+.neon-border-coral {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 2px solid rgba(232, 90, 79, 0.4);
+  box-shadow: 
+    0 4px 20px rgba(232, 90, 79, 0.12),
+    inset 0 0 20px rgba(232, 90, 79, 0.02);
+}
+
+/* Aurora Card - Light Theme */
+.aurora-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(253, 248, 243, 0.95) 100%);
+  border: 1px solid rgba(232, 222, 212, 0.5);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(43, 69, 112, 0.05);
+}
+
+.aurora-card::before {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: -50%;
+  width: 200%;
+  height: 300%;
+  background: 
+    conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      rgba(244, 162, 89, 0.04) 60deg,
+      transparent 120deg,
+      rgba(232, 90, 79, 0.03) 180deg,
+      transparent 240deg,
+      rgba(107, 179, 217, 0.04) 300deg,
+      transparent 360deg
+    );
+  animation: aurora-rotate 12s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes aurora-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Orbit Animation Classes */
+.orbit-animation-1 {
+  animation: orbit-spin-1 10s linear infinite;
+}
+
+.orbit-animation-2 {
+  animation: orbit-spin-2 8s linear infinite reverse;
+}
+
+@keyframes orbit-spin-1 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-spin-2 {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}

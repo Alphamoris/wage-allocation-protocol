@@ -1,0 +1,26 @@
+[package]
+name = "wage_protocol"
+version = "1.0.0"
+authors = ["Daily Wage Allocation Protocol Team"]
+upgrade_policy = "compatible"
+
+[addresses]
+wage_streaming_addr = "0xb51fa9b2858dccf17483aa110f2a64ee7177483d79f613c864c7f4a020e940ab"
+aptos_framework = "0x1"
+aptos_std = "0x1"
+std = "0x1"
+
+[dev-addresses]
+wage_streaming_addr = "0xCAFE"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.AptosStdlib]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-stdlib"
+
+[dev-dependencies]

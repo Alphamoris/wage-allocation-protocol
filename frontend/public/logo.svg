@@ -1,0 +1,86 @@
+<svg width="180" height="60" viewBox="0 0 180 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main Gradient: Coral to Gold -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E85A4F" />
+      <stop offset="50%" stop-color="#F4A259" />
+      <stop offset="100%" stop-color="#F2B5D4" />
+    </linearGradient>
+    
+    <!-- Text Gradient -->
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1A1A2E" />
+      <stop offset="100%" stop-color="#2B4570" />
+    </linearGradient>
+    
+    <!-- Accent Gradient -->
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E85A4F" />
+      <stop offset="100%" stop-color="#F4A259" />
+    </linearGradient>
+    
+    <!-- Icon Background Gradient -->
+    <linearGradient id="iconBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E85A4F" />
+      <stop offset="60%" stop-color="#F4A259" />
+      <stop offset="100%" stop-color="#F2B5D4" />
+    </linearGradient>
+    
+    <!-- Glow Filter -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Soft Shadow -->
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#E85A4F" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  
+  <!-- Icon Container - Rounded Square -->
+  <rect x="4" y="8" width="44" height="44" rx="12" fill="url(#iconBg)" filter="url(#softShadow)"/>
+  
+  <!-- Stylized W inside icon -->
+  <path d="M14 18 L20 40 L26 26 L32 40 L38 18" 
+        stroke="white" 
+        stroke-width="3.5" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"
+        opacity="0.95"/>
+  
+  <!-- Small Dollar Symbol - Subtle accent on icon -->
+  <g transform="translate(36, 14)" opacity="0.7">
+    <path d="M4 2 L4 0 M4 10 L4 8 M1 3 C1 2 2 1.5 4 1.5 C6 1.5 7 2.5 7 3.5 C7 4.5 6 5 4 5.5 C2 6 1 6.5 1 7.5 C1 8.5 2 9 4 9 C6 9 7 8.5 7 7.5" 
+          stroke="white" 
+          stroke-width="1.2" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"/>
+  </g>
+  
+  <!-- WAP Text -->
+  <text x="58" y="40" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="32" font-weight="800" letter-spacing="-1" fill="url(#textGradient)">WAP</text>
+  
+  <!-- Tagline -->
+  <text x="59" y="52" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="8" font-weight="500" letter-spacing="2" fill="#718096" opacity="0.9">WAGE PROTOCOL</text>
+  
+  <!-- Decorative accent line -->
+  <rect x="58" y="44" width="32" height="2" rx="1" fill="url(#accentGradient)" opacity="0.6"/>
+  
+  <!-- Flow lines decoration (representing streaming) -->
+  <g opacity="0.4">
+    <path d="M140 20 Q150 30 140 40" stroke="#E85A4F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M148 18 Q160 30 148 42" stroke="#F4A259" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M156 16 Q170 30 156 44" stroke="#6BB3D9" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Small streaming dots -->
+  <circle cx="144" cy="30" r="2" fill="#E85A4F" opacity="0.8"/>
+  <circle cx="154" cy="30" r="2" fill="#F4A259" opacity="0.8"/>
+  <circle cx="164" cy="30" r="2" fill="#6BB3D9" opacity="0.8"/>
+</svg>

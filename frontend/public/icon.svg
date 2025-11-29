@@ -1,0 +1,44 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main Gradient -->
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E85A4F" />
+      <stop offset="50%" stop-color="#F4A259" />
+      <stop offset="100%" stop-color="#F2B5D4" />
+    </linearGradient>
+    
+    <!-- Soft Shadow -->
+    <filter id="iconShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="20" flood-color="#E85A4F" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Background Circle with gradient -->
+  <rect width="512" height="512" rx="128" fill="url(#iconGradient)" filter="url(#iconShadow)"/>
+  
+  <!-- Stylized W -->
+  <path d="M120 140 L180 380 L256 240 L332 380 L392 140" 
+        stroke="white" 
+        stroke-width="40" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"
+        opacity="0.95"/>
+  
+  <!-- Subtle Dollar Symbol - Small accent -->
+  <g transform="translate(370, 100)" opacity="0.6">
+    <path d="M24 8 L24 0 M24 56 L24 48 M8 16 C8 10 14 6 24 6 C34 6 40 12 40 20 C40 28 34 32 24 36 C14 40 8 44 8 52 C8 60 14 64 24 64 C34 64 40 58 40 50" 
+          stroke="white" 
+          stroke-width="6" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" 
+          fill="none"/>
+  </g>
+  
+  <!-- Streaming lines decoration -->
+  <g opacity="0.4" transform="translate(0, 30)">
+    <circle cx="140" cy="420" r="12" fill="white"/>
+    <circle cx="256" cy="420" r="12" fill="white"/>
+    <circle cx="372" cy="420" r="12" fill="white"/>
+  </g>
+</svg>
