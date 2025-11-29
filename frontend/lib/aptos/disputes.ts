@@ -29,18 +29,6 @@ export interface DisputeStats {
   totalResolvedAmount: bigint;
 }
 
-// Dispute Status Constants
-export const DISPUTE_STATUS = {
-  OPENED: 0,
-  EVIDENCE_SUBMISSION: 1,
-  MEDIATION: 2,
-  ARBITRATION: 3,
-  RESOLVED: 4,
-  APPEALED: 5,
-  FINAL: 6,
-  CANCELLED: 7,
-} as const;
-
 // Dispute Category Constants
 export const DISPUTE_CATEGORY = {
   WAGE_AMOUNT: 0,

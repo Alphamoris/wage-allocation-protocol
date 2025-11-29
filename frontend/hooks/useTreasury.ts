@@ -18,7 +18,7 @@ import {
   getTreasuryHealth,
   getTreasuryAnalytics,
   getAllocation,
-  getRegistryStats,
+  getTreasuryRegistryStats,
   getAllocatedBalance,
   getAvailableBalance,
   isTreasuryInitialized,
@@ -276,7 +276,7 @@ export const useTreasuryRegistryStats = (registryAddr: string = DEFAULT_REGISTRY
     setError(null);
 
     try {
-      const result = await getRegistryStats(registryAddr);
+      const result = await getTreasuryRegistryStats(registryAddr);
       setStats(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch registry stats");

@@ -1,452 +1,598 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Button } from "@/components/ui/button";
 import {
   Users,
   Search,
-  Filter,
   Plus,
-  MoreVertical,
   Clock,
   Wallet,
-  TrendingUp,
   CheckCircle,
   XCircle,
   Pause,
   Play,
-  Mail,
-  Phone,
-  MapPin,
   Calendar,
   DollarSign,
-  ChevronDown,
-  Download,
-  Upload,
   RefreshCw,
-  UserPlus,
-  Edit2,
-  Trash2,
   Eye,
   Zap,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+  ArrowUpRight,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AptosWalletContext";
+import { useEmployerStreams, useWageStreamingEmployer } from "@/hooks/useWageStreaming";
+import { useTreasuryExists } from "@/hooks/useTreasury";
+import { formatAmount, formatAddress, formatDate, STREAM_STATUS_MAP, getStreamProgress } from "@/types";
+import { getExplorerUrl } from "@/lib/aptos/config";
+import { useRouter } from "next/navigation";
 
-// Mock employee data
-const employees = [
-  {
-    id: 1,
-    name: "Priya Sharma",
-    email: "priya.sharma@company.com",
-    phone: "+91 98765 43210",
-    role: "Senior Developer",
-    department: "Engineering",
-    location: "Mumbai",
-    status: "streaming",
-    streamRate: "0.0012 USDC/sec",
-    totalEarned: "45,280 USDC",
-    hoursToday: "6h 24m",
-    joinDate: "2024-01-15",
-    avatar: "PS",
-  },
-  {
-    id: 2,
-    name: "Arjun Patel",
-    email: "arjun.patel@company.com",
-    phone: "+91 87654 32109",
-    role: "Product Designer",
-    department: "Design",
-    location: "Bangalore",
-    status: "streaming",
-    streamRate: "0.0010 USDC/sec",
-    totalEarned: "38,450 USDC",
-    hoursToday: "5h 48m",
-    joinDate: "2024-02-20",
-    avatar: "AP",
-  },
-  {
-    id: 3,
-    name: "Sneha Reddy",
-    email: "sneha.reddy@company.com",
-    phone: "+91 76543 21098",
-    role: "Marketing Manager",
-    department: "Marketing",
-    location: "Hyderabad",
-    status: "paused",
-    streamRate: "0.0009 USDC/sec",
-    totalEarned: "32,180 USDC",
-    hoursToday: "4h 12m",
-    joinDate: "2024-03-10",
-    avatar: "SR",
-  },
-  {
-    id: 4,
-    name: "Rahul Kumar",
-    email: "rahul.kumar@company.com",
-    phone: "+91 65432 10987",
-    role: "DevOps Engineer",
-    department: "Engineering",
-    location: "Delhi",
-    status: "streaming",
-    streamRate: "0.0011 USDC/sec",
-    totalEarned: "41,890 USDC",
-    hoursToday: "7h 02m",
-    joinDate: "2024-01-25",
-    avatar: "RK",
-  },
-  {
-    id: 5,
-    name: "Anita Singh",
-    email: "anita.singh@company.com",
-    phone: "+91 54321 09876",
-    role: "HR Specialist",
-    department: "Human Resources",
-    location: "Chennai",
-    status: "inactive",
-    streamRate: "0.0008 USDC/sec",
-    totalEarned: "28,540 USDC",
-    hoursToday: "0h 00m",
-    joinDate: "2024-04-05",
-    avatar: "AS",
-  },
-];
+// Stream Detail Modal
+const StreamDetailModal = ({
+  isOpen,
+  onClose,
+  stream,
+  onPause,
+  onResume,
+  onTerminate,
+  loading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  stream: {
+    streamId: string;
+    employee: string;
+    employer: string;
+    ratePerSecond: bigint;
+    totalDeposited: bigint;
+    totalWithdrawn: bigint;
+    startTime: number;
+    endTime: number;
+    status: number;
+    description?: string;
+  } | null;
+  onPause: () => void;
+  onResume: () => void;
+  onTerminate: () => void;
+  loading: boolean;
+}) => {
+  if (!isOpen || !stream) return null;
 
-const stats = [
-  { label: "Total Employees", value: "24", icon: Users, color: "from-[#E85A4F] to-[#F4A259]" },
-  { label: "Currently Streaming", value: "18", icon: Zap, color: "from-[#2D9F6C] to-[#34D399]" },
-  { label: "Total Disbursed", value: "4.2M USDC", icon: Wallet, color: "from-[#6BB3D9] to-[#93C5FD]" },
-  { label: "Avg. Hours/Day", value: "6.5h", icon: Clock, color: "from-[#F2B5D4] to-[#EC4899]" },
-];
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const startTime = BigInt(stream.startTime);
+  const endTime = BigInt(stream.endTime);
+  const elapsed = now > startTime ? now - startTime : BigInt(0);
+  const duration = endTime - startTime;
+  const effectiveElapsed = elapsed > duration ? duration : elapsed;
+  const earned = stream.ratePerSecond * effectiveElapsed;
+  const withdrawable = earned > stream.totalWithdrawn ? earned - stream.totalWithdrawn : BigInt(0);
+  const progress = getStreamProgress(stream);
+  const totalAmount = stream.ratePerSecond * duration;
+  const remaining = totalAmount > earned ? totalAmount - earned : BigInt(0);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-[#1A1A2E]">Stream Details</h2>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            stream.status === 1 ? 'bg-[#2D9F6C]/10 text-[#2D9F6C]' :
+            stream.status === 2 ? 'bg-[#F4A259]/10 text-[#F4A259]' :
+            'bg-[#E85A4F]/10 text-[#E85A4F]'
+          }`}>
+            {STREAM_STATUS_MAP[stream.status]}
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {/* Employee Address */}
+          <div className="p-4 bg-[#FAF6F1] rounded-xl">
+            <label className="text-xs text-[#718096] uppercase tracking-wide">Employee Address</label>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="font-mono text-[#1A1A2E]">{formatAddress(stream.employee)}</p>
+              <a href={getExplorerUrl(stream.employee, "account")} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4 text-[#718096] hover:text-[#E85A4F]" />
+              </a>
+            </div>
+          </div>
+
+          {/* Description */}
+          {stream.description && (
+            <div className="p-4 bg-[#FAF6F1] rounded-xl">
+              <label className="text-xs text-[#718096] uppercase tracking-wide">Job Description</label>
+              <p className="text-[#1A1A2E] mt-1">{stream.description}</p>
+            </div>
+          )}
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 bg-[#FAF6F1] rounded-xl">
+              <label className="text-xs text-[#718096]">Rate per Day</label>
+              <p className="font-mono font-bold text-[#1A1A2E]">{formatAmount(stream.ratePerSecond * BigInt(86400))} APT</p>
+            </div>
+            <div className="p-4 bg-[#FAF6F1] rounded-xl">
+              <label className="text-xs text-[#718096]">Total Amount</label>
+              <p className="font-mono font-bold text-[#1A1A2E]">{formatAmount(totalAmount)} APT</p>
+            </div>
+            <div className="p-4 bg-[#FAF6F1] rounded-xl">
+              <label className="text-xs text-[#718096]">Already Withdrawn</label>
+              <p className="font-mono font-bold text-[#2D9F6C]">{formatAmount(stream.totalWithdrawn)} APT</p>
+            </div>
+            <div className="p-4 bg-[#FAF6F1] rounded-xl">
+              <label className="text-xs text-[#718096]">Pending Withdrawal</label>
+              <p className="font-mono font-bold text-[#F4A259]">{formatAmount(withdrawable)} APT</p>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div className="p-4 bg-[#FAF6F1] rounded-xl">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-[#718096]">Stream Progress</span>
+              <span className="font-mono font-semibold">{progress.toFixed(1)}%</span>
+            </div>
+            <div className="h-2 bg-[#E8DED4] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#E85A4F] to-[#F4A259] rounded-full"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs mt-2 text-[#718096]">
+              <span>Started: {formatDate(stream.startTime)}</span>
+              <span>Ends: {formatDate(stream.endTime)}</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4">
+            <Button variant="outline" onClick={onClose} className="flex-1" disabled={loading}>
+              Close
+            </Button>
+            {stream.status === 1 && (
+              <Button
+                onClick={onPause}
+                disabled={loading}
+                className="flex-1 bg-[#F4A259] hover:bg-[#E8A838] text-white"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
+                Pause
+              </Button>
+            )}
+            {stream.status === 2 && (
+              <Button
+                onClick={onResume}
+                disabled={loading}
+                className="flex-1 bg-[#2D9F6C] hover:bg-[#25855A] text-white"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                Resume
+              </Button>
+            )}
+            {(stream.status === 1 || stream.status === 2) && (
+              <Button
+                onClick={onTerminate}
+                disabled={loading}
+                variant="outline"
+                className="border-[#E85A4F] text-[#E85A4F] hover:bg-[#E85A4F]/10"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+              </Button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 export default function EmployeesPage() {
+  const router = useRouter();
+  const { address, isConnected } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<number | "all">("all");
+  const [selectedStream, setSelectedStream] = useState<typeof streams[0] | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.role.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === "all" || emp.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  // Blockchain data hooks
+  const { exists: treasuryExists, loading: existsLoading } = useTreasuryExists();
+  const { streams, loading: streamsLoading, refetch: refetchStreams } = useEmployerStreams();
+  const { pauseStream, resumeStream, terminateStream, loading: opLoading } = useWageStreamingEmployer();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "streaming":
-        return "bg-[#2D9F6C]/15 text-[#2D9F6C] border-[#2D9F6C]/30";
-      case "paused":
-        return "bg-[#F4A259]/15 text-[#E8A838] border-[#F4A259]/30";
-      case "inactive":
-        return "bg-[#718096]/15 text-[#718096] border-[#718096]/30";
-      default:
-        return "bg-[#718096]/15 text-[#718096] border-[#718096]/30";
+  // Filter streams
+  const filteredStreams = useMemo(() => {
+    return streams.filter(stream => {
+      // Search filter - search by employee address
+      const matchesSearch = searchQuery === "" || 
+        stream.employee.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter
+      const matchesStatus = statusFilter === "all" || stream.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [streams, searchQuery, statusFilter]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = streams.length;
+    const active = streams.filter(s => s.status === 1).length;
+    const paused = streams.filter(s => s.status === 2).length;
+    const completed = streams.filter(s => s.status === 0 || s.status === 3).length;
+    const totalValue = streams.reduce((acc, s) => {
+      const duration = BigInt(s.endTime) - BigInt(s.startTime);
+      return acc + (s.ratePerSecond * duration);
+    }, BigInt(0));
+
+    return { total, active, paused, completed, totalValue };
+  }, [streams]);
+
+  // Handle stream actions
+  const handlePauseStream = async () => {
+    if (!selectedStream) return;
+    const txHash = await pauseStream(Number(selectedStream.streamId));
+    if (txHash) {
+      refetchStreams();
+      setShowDetailModal(false);
+      setSelectedStream(null);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "streaming":
-        return <Play size={12} className="fill-current" />;
-      case "paused":
-        return <Pause size={12} />;
-      case "inactive":
-        return <XCircle size={12} />;
-      default:
-        return null;
+  const handleResumeStream = async () => {
+    if (!selectedStream) return;
+    const txHash = await resumeStream(Number(selectedStream.streamId));
+    if (txHash) {
+      refetchStreams();
+      setShowDetailModal(false);
+      setSelectedStream(null);
     }
   };
+
+  const handleTerminateStream = async () => {
+    if (!selectedStream) return;
+    if (confirm("Are you sure you want to terminate this stream? This action cannot be undone.")) {
+      const txHash = await terminateStream(Number(selectedStream.streamId));
+      if (txHash) {
+        refetchStreams();
+        setShowDetailModal(false);
+        setSelectedStream(null);
+      }
+    }
+  };
+
+  const openStreamDetail = (stream: typeof streams[0]) => {
+    setSelectedStream(stream);
+    setShowDetailModal(true);
+  };
+
+  const isLoading = existsLoading || streamsLoading;
+
+  // Not connected state
+  if (!isConnected) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <GlassCard className="p-8 text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-[#F4A259] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Wallet Not Connected</h2>
+          <p className="text-[#4A5568] mb-4">Please connect your wallet to manage employees.</p>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Treasury not initialized
+  if (!existsLoading && !treasuryExists) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <GlassCard className="p-8 text-center max-w-md">
+          <Wallet className="w-16 h-16 text-[#E85A4F] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Treasury Required</h2>
+          <p className="text-[#4A5568] mb-6">Initialize your treasury to manage employee streams.</p>
+          <Button
+            onClick={() => router.push("/employer/treasury")}
+            className="bg-gradient-to-r from-[#E85A4F] to-[#F4A259] text-white"
+          >
+            Go to Treasury
+          </Button>
+        </GlassCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Stream Detail Modal */}
+      <AnimatePresence>
+        {showDetailModal && selectedStream && (
+          <StreamDetailModal
+            isOpen={showDetailModal}
+            onClose={() => { setShowDetailModal(false); setSelectedStream(null); }}
+            stream={selectedStream}
+            onPause={handlePauseStream}
+            onResume={handleResumeStream}
+            onTerminate={handleTerminateStream}
+            loading={opLoading}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
       >
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-[#1A1A2E]">
-                Employee Management
-              </h1>
-              <p className="text-[#4A5568] mt-1">
-                Manage your workforce and wage streams
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="border-[#E8DED4] text-[#4A5568] hover:bg-[#F5EDE6]">
-                <Upload size={18} className="mr-2" />
-                Import
-              </Button>
-              <Button variant="outline" className="border-[#E8DED4] text-[#4A5568] hover:bg-[#F5EDE6]">
-                <Download size={18} className="mr-2" />
-                Export
-              </Button>
-              <Button onClick={() => setShowAddModal(true)}>
-                <UserPlus size={18} className="mr-2" />
-                Add Employee
-              </Button>
-            </div>
-          </motion.div>
-
-          {/* Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
+        <div>
+          <h1 className="text-3xl lg:text-4xl font-bold text-[#1A1A2E]">Employee Streams</h1>
+          <p className="text-[#4A5568] mt-1">Manage wage streams for your employees</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="ghost" size="icon" onClick={() => refetchStreams()} disabled={isLoading}>
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            onClick={() => router.push("/employer")}
+            className="bg-gradient-to-r from-[#E85A4F] to-[#F4A259] text-white"
           >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <GlassCard className="p-5" variant="default">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm text-[#4A5568]">{stat.label}</p>
-                      <p className="text-2xl lg:text-3xl font-bold text-[#1A1A2E] mt-1">
-                        {stat.value}
-                      </p>
-                    </div>
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
-                      <stat.icon size={24} className="text-white" />
-                    </div>
-                  </div>
-                </GlassCard>
-              </motion.div>
-            ))}
-          </motion.div>
+            <Plus size={18} className="mr-2" />
+            Add Employee
+          </Button>
+        </div>
+      </motion.div>
 
-          {/* Search and Filters */}
+      {/* Stats Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 lg:grid-cols-5 gap-4"
+      >
+        {[
+          { label: "Total Employees", value: stats.total, icon: Users, color: "from-[#E85A4F] to-[#F4A259]" },
+          { label: "Active Streams", value: stats.active, icon: Zap, color: "from-[#2D9F6C] to-[#34D399]" },
+          { label: "Paused", value: stats.paused, icon: Pause, color: "from-[#F4A259] to-[#FCD34D]" },
+          { label: "Completed", value: stats.completed, icon: CheckCircle, color: "from-[#6BB3D9] to-[#93C5FD]" },
+          { label: "Total Value", value: `${formatAmount(stats.totalValue)} APT`, icon: DollarSign, color: "from-[#E85A4F] to-[#6BB3D9]" },
+        ].map((stat, i) => (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="mb-6"
+            key={stat.label}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.05 }}
           >
             <GlassCard className="p-4" variant="default">
-              <div className="flex flex-col lg:flex-row gap-4">
-                {/* Search */}
-                <div className="flex-1 relative">
-                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#718096]" />
-                  <input
-                    type="text"
-                    placeholder="Search employees by name, email, or role..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50 transition-colors"
-                  />
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
+                  <stat.icon size={18} className="text-white" />
                 </div>
-
-                {/* Status Filter */}
-                <div className="flex gap-2">
-                  {["all", "streaming", "paused", "inactive"].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setFilterStatus(status)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                        filterStatus === status
-                          ? "bg-[#E85A4F] text-white"
-                          : "bg-[#FAF6F1] text-[#4A5568] hover:bg-[#F5EDE6] border border-[#E8DED4]"
-                      }`}
-                    >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-xs text-[#718096]">{stat.label}</p>
+                  <p className="text-xl font-bold text-[#1A1A2E] font-mono">
+                    {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : stat.value}
+                  </p>
                 </div>
-
-                <Button variant="outline" className="border-[#E8DED4] text-[#4A5568] hover:bg-[#F5EDE6]">
-                  <RefreshCw size={18} />
-                </Button>
               </div>
             </GlassCard>
           </motion.div>
+        ))}
+      </motion.div>
 
-          {/* Employee Table */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <GlassCard className="overflow-hidden" variant="default">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#E8DED4]">
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Employee</th>
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Department</th>
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Status</th>
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Stream Rate</th>
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Today</th>
-                      <th className="text-left p-4 text-sm font-semibold text-[#4A5568]">Total Earned</th>
-                      <th className="text-right p-4 text-sm font-semibold text-[#4A5568]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredEmployees.map((employee, index) => (
+      {/* Filters */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="flex flex-col sm:flex-row gap-4"
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#718096]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by address or description..."
+            className="w-full pl-12 pr-4 py-3 rounded-xl border border-[#E8DED4] focus:border-[#E85A4F] focus:ring-1 focus:ring-[#E85A4F] outline-none transition-all bg-white"
+          />
+        </div>
+        <div className="flex gap-2">
+          {[
+            { value: "all" as const, label: "All" },
+            { value: 1, label: "Active" },
+            { value: 2, label: "Paused" },
+            { value: 0, label: "Completed" },
+          ].map((filter) => (
+            <Button
+              key={String(filter.value)}
+              variant={statusFilter === filter.value ? "default" : "outline"}
+              onClick={() => setStatusFilter(filter.value)}
+              className={statusFilter === filter.value 
+                ? "bg-[#E85A4F] text-white" 
+                : "border-[#E8DED4] text-[#4A5568]"
+              }
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Employees List */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <GlassCard className="overflow-hidden" variant="default">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[#FAF6F1] border-b border-[#E8DED4]">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Rate
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Progress
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Withdrawn
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-[#718096] uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E8DED4]">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#E85A4F]" />
+                    </td>
+                  </tr>
+                ) : filteredStreams.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <Users className="w-12 h-12 mx-auto mb-3 text-[#718096] opacity-50" />
+                      <p className="text-[#718096]">
+                        {searchQuery || statusFilter !== "all" 
+                          ? "No streams match your filters" 
+                          : "No employee streams yet"}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStreams.map((stream, index) => {
+                    const progress = getStreamProgress(stream);
+                    return (
                       <motion.tr
-                        key={employee.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="border-b border-[#E8DED4]/50 hover:bg-[#FAF6F1]/50 transition-colors"
+                        key={Number(stream.streamId)}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 + index * 0.05 }}
+                        className="hover:bg-[#FAF6F1]/50 transition-colors"
                       >
-                        <td className="p-4">
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E85A4F] to-[#F4A259] flex items-center justify-center text-white font-semibold text-sm">
-                              {employee.avatar}
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-semibold ${
+                              stream.status === 1 ? 'bg-gradient-to-br from-[#2D9F6C] to-[#34D399]' :
+                              stream.status === 2 ? 'bg-gradient-to-br from-[#F4A259] to-[#FCD34D]' :
+                              'bg-gradient-to-br from-[#718096] to-[#A0AEC0]'
+                            }`}>
+                              {stream.employee.slice(2, 4).toUpperCase()}
                             </div>
                             <div>
-                              <p className="font-medium text-[#1A1A2E]">{employee.name}</p>
-                              <p className="text-sm text-[#718096]">{employee.role}</p>
+                              <p className="font-mono text-sm font-medium text-[#1A1A2E]">
+                                {formatAddress(stream.employee)}
+                              </p>
                             </div>
                           </div>
                         </td>
-                        <td className="p-4">
-                          <span className="text-[#4A5568]">{employee.department}</span>
+                        <td className="px-6 py-4">
+                          <p className="font-mono text-sm font-semibold text-[#1A1A2E]">
+                            {formatAmount(stream.ratePerSecond * BigInt(86400))} APT
+                          </p>
+                          <p className="text-xs text-[#718096]">per day</p>
                         </td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(employee.status)}`}>
-                            {getStatusIcon(employee.status)}
-                            {employee.status.charAt(0).toUpperCase() + employee.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-mono text-[#2D9F6C] font-medium">{employee.streamRate}</span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Clock size={14} className="text-[#718096]" />
-                            <span className="text-[#4A5568]">{employee.hoursToday}</span>
+                        <td className="px-6 py-4">
+                          <div className="w-32">
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-[#718096]">{progress.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-2 bg-[#E8DED4] rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  stream.status === 1 ? 'bg-gradient-to-r from-[#2D9F6C] to-[#34D399]' :
+                                  stream.status === 2 ? 'bg-[#F4A259]' :
+                                  'bg-[#718096]'
+                                }`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
                           </div>
                         </td>
-                        <td className="p-4">
-                          <span className="font-semibold text-[#1A1A2E]">{employee.totalEarned}</span>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                            stream.status === 1 ? 'bg-[#2D9F6C]/10 text-[#2D9F6C]' :
+                            stream.status === 2 ? 'bg-[#F4A259]/10 text-[#F4A259]' :
+                            stream.status === 0 ? 'bg-[#6BB3D9]/10 text-[#6BB3D9]' :
+                            'bg-[#E85A4F]/10 text-[#E85A4F]'
+                          }`}>
+                            {stream.status === 1 && <Zap className="w-3 h-3" />}
+                            {stream.status === 2 && <Pause className="w-3 h-3" />}
+                            {stream.status === 0 && <CheckCircle className="w-3 h-3" />}
+                            {stream.status === 3 && <XCircle className="w-3 h-3" />}
+                            {STREAM_STATUS_MAP[stream.status]}
+                          </span>
                         </td>
-                        <td className="p-4">
+                        <td className="px-6 py-4">
+                          <p className="font-mono text-sm font-semibold text-[#2D9F6C]">
+                            {formatAmount(stream.totalWithdrawn)} APT
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button className="p-2 rounded-lg hover:bg-[#F5EDE6] text-[#4A5568] hover:text-[#6BB3D9] transition-colors">
-                              <Eye size={16} />
-                            </button>
-                            <button className="p-2 rounded-lg hover:bg-[#F5EDE6] text-[#4A5568] hover:text-[#F4A259] transition-colors">
-                              <Edit2 size={16} />
-                            </button>
-                            <button className="p-2 rounded-lg hover:bg-[#E85A4F]/10 text-[#4A5568] hover:text-[#E85A4F] transition-colors">
-                              <Trash2 size={16} />
-                            </button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openStreamDetail(stream)}
+                              className="h-8 w-8"
+                            >
+                              <Eye className="w-4 h-4 text-[#718096]" />
+                            </Button>
+                            {stream.status === 1 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => { setSelectedStream(stream); handlePauseStream(); }}
+                                className="h-8 w-8"
+                                disabled={opLoading}
+                              >
+                                <Pause className="w-4 h-4 text-[#F4A259]" />
+                              </Button>
+                            )}
+                            {stream.status === 2 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => { setSelectedStream(stream); handleResumeStream(); }}
+                                className="h-8 w-8"
+                                disabled={opLoading}
+                              >
+                                <Play className="w-4 h-4 text-[#2D9F6C]" />
+                              </Button>
+                            )}
+                            <a
+                              href={getExplorerUrl(stream.employee, "account")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ExternalLink className="w-4 h-4 text-[#6BB3D9]" />
+                              </Button>
+                            </a>
                           </div>
                         </td>
                       </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="p-4 border-t border-[#E8DED4] flex items-center justify-between">
-                <p className="text-sm text-[#718096]">
-                  Showing {filteredEmployees.length} of {employees.length} employees
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="border-[#E8DED4] text-[#4A5568]">
-                    Previous
-                  </Button>
-                  <Button variant="outline" size="sm" className="border-[#E8DED4] text-[#4A5568]">
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </GlassCard>
-          </motion.div>
-
-      {/* Add Employee Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-[#1A1A2E]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowAddModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl border border-[#E8DED4]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-2xl font-bold text-[#1A1A2E] mb-6">Add New Employee</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    placeholder="Enter employee name"
-                    className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Email</label>
-                  <input
-                    type="email"
-                    placeholder="Enter email address"
-                    className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[#4A5568] mb-2">Department</label>
-                    <select className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] focus:outline-none focus:border-[#E85A4F]/50">
-                      <option>Engineering</option>
-                      <option>Design</option>
-                      <option>Marketing</option>
-                      <option>Human Resources</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-[#4A5568] mb-2">Stream Rate</label>
-                    <input
-                      type="text"
-                      placeholder="0.0010 USDC/sec"
-                      className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Wallet Address</label>
-                  <input
-                    type="text"
-                    placeholder="Enter Aptos wallet address"
-                    className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-[#E8DED4] text-[#4A5568]"
-                  onClick={() => setShowAddModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button className="flex-1">
-                  <UserPlus size={18} className="mr-2" />
-                  Add Employee
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
+      </motion.div>
     </div>
   );
 }

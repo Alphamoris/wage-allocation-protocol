@@ -203,7 +203,7 @@ export const getTreasuryAnalytics = async (employerAddr: string): Promise<Treasu
 /**
  * Get registry statistics
  */
-export const getRegistryStats = async (registryAddr: string): Promise<TreasuryRegistryStats | null> => {
+export const getTreasuryRegistryStats = async (registryAddr: string): Promise<TreasuryRegistryStats | null> => {
   try {
     const result = await aptos.view({
       payload: {

@@ -9,7 +9,7 @@ import {
   ParticipationInfo,
   StreakInfo,
   PhotonRegistryStats,
-  getRegistryStats,
+  getPhotonRegistryStats,
   getCampaignInfo,
   getEmployeeRewardsSummary,
   getParticipationInfo,
@@ -30,7 +30,7 @@ export const usePhotonRegistryStats = (registryAddress?: string) => {
     setError(null);
 
     try {
-      const result = await getRegistryStats(registryAddr);
+      const result = await getPhotonRegistryStats(registryAddr);
       setStats(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to fetch registry stats");
@@ -231,4 +231,56 @@ export const useEmployeeRewardsDashboard = (employeeAddress?: string) => {
     error,
     refetch,
   };
+};
+
+// Hook for Photon balance (alias for rewards summary)
+export const usePhotonBalance = (employeeAddress?: string) => {
+  const { summary, loading, error, refetch } = useEmployeeRewardsSummary(employeeAddress);
+
+  return {
+    balance: summary?.pendingPat || BigInt(0),
+    totalEarned: summary?.totalPatEarned || BigInt(0),
+    totalClaimed: summary?.totalPatClaimed || BigInt(0),
+    loading,
+    error,
+    refetch,
+  };
+};
+
+// Hook for Photon operations (claim rewards)
+export const usePhotonOperations = () => {
+  const { signAndSubmitTransaction } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const claimRewards = useCallback(async (): Promise<string | null> => {
+    if (!signAndSubmitTransaction) {
+      setError("Wallet not connected");
+      return null;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Claim rewards transaction
+      const payload = {
+        data: {
+          function: `${CONTRACT_ADDRESS}::photon_rewards::claim_rewards` as `${string}::${string}::${string}`,
+          functionArguments: [],
+        },
+      };
+
+      const response = await signAndSubmitTransaction(payload);
+      return response.hash;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to claim rewards";
+      setError(message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [signAndSubmitTransaction]);
+
+  return { claimRewards, loading, error };
 };

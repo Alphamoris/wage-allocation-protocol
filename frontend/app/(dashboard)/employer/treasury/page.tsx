@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -8,184 +8,362 @@ import {
   Wallet,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
-  TrendingDown,
   RefreshCw,
   Plus,
-  Send,
-  Download,
   Clock,
   CheckCircle,
   AlertCircle,
-  XCircle,
   Zap,
   Shield,
-  Lock,
-  Unlock,
-  ArrowRight,
   ExternalLink,
-  Copy,
-  ChevronDown,
   DollarSign,
+  Loader2,
+  Activity,
   PieChart,
-  BarChart3,
-  CreditCard,
+  TrendingUp,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AptosWalletContext";
+import { 
+  useTreasuryBalance, 
+  useTreasuryExists,
+  useTreasuryHealth,
+  useTreasuryOperations
+} from "@/hooks/useTreasury";
+import { useEmployerStreams } from "@/hooks/useWageStreaming";
+import { formatAmount, formatAddress } from "@/types";
+import { getExplorerUrl } from "@/lib/aptos/config";
 
-const treasuryStats = [
-  {
-    label: "Total Balance",
-    value: "124,589 USDC",
-    change: "+12.5%",
-    isPositive: true,
-    icon: Wallet,
-    color: "from-[#E85A4F] to-[#F4A259]",
-  },
-  {
-    label: "Active Streams",
-    value: "82,450 USDC",
-    change: "18 streams",
-    isPositive: true,
-    icon: Zap,
-    color: "from-[#2D9F6C] to-[#34D399]",
-  },
-  {
-    label: "Pending Payouts",
-    value: "18,520 USDC",
-    change: "5 pending",
-    isPositive: false,
-    icon: Clock,
-    color: "from-[#F4A259] to-[#FCD34D]",
-  },
-  {
-    label: "Reserved Funds",
-    value: "23,619 USDC",
-    change: "Protected",
-    isPositive: true,
-    icon: Shield,
-    color: "from-[#6BB3D9] to-[#93C5FD]",
-  },
-];
+// Deposit Modal Component
+const DepositModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  loading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (amount: bigint) => void;
+  loading: boolean;
+}) => {
+  const [amount, setAmount] = useState("");
 
-const recentTransactions = [
-  {
-    id: 1,
-    type: "deposit",
-    amount: "50,000 USDC",
-    description: "Treasury Deposit",
-    status: "completed",
-    time: "2 hours ago",
-    hash: "0x7a3f...8e2d",
-  },
-  {
-    id: 2,
-    type: "stream",
-    amount: "4,528 USDC",
-    description: "Wage Stream - Priya Sharma",
-    status: "streaming",
-    time: "Ongoing",
-    hash: "0x9b2c...4f1a",
-  },
-  {
-    id: 3,
-    type: "stream",
-    amount: "3,845 USDC",
-    description: "Wage Stream - Arjun Patel",
-    status: "streaming",
-    time: "Ongoing",
-    hash: "0x1d5e...7c3b",
-  },
-  {
-    id: 4,
-    type: "withdrawal",
-    amount: "12,500 USDC",
-    description: "Emergency Fund Transfer",
-    status: "completed",
-    time: "1 day ago",
-    hash: "0x4e8a...2d9f",
-  },
-  {
-    id: 5,
-    type: "claim",
-    amount: "3,218 USDC",
-    description: "Claim by Sneha Reddy",
-    status: "completed",
-    time: "2 days ago",
-    hash: "0x6c4d...8a1e",
-  },
-];
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountInOctas = BigInt(Math.floor(parseFloat(amount) * 100_000_000));
+    onSubmit(amountInOctas);
+  };
 
-const fundingSources = [
-  {
-    id: 1,
-    name: "Primary Treasury",
-    type: "Aptos Wallet",
-    balance: "85,000 USDC",
-    address: "0x742d...35e9",
-    status: "connected",
-  },
-  {
-    id: 2,
-    name: "Backup Reserve",
-    type: "Multi-sig Wallet",
-    balance: "39,589 USDC",
-    address: "0x9f1a...72c4",
-    status: "connected",
-  },
-];
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+      >
+        <h2 className="text-2xl font-bold text-[#1A1A2E] mb-6">Deposit to Treasury</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-[#4A5568] mb-2">Amount (APT)</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="100.00"
+              step="0.01"
+              min="0.01"
+              className="w-full px-4 py-3 rounded-xl border border-[#E8DED4] focus:border-[#E85A4F] focus:ring-1 focus:ring-[#E85A4F] outline-none transition-all"
+              required
+            />
+          </div>
+          <div className="bg-[#FAF6F1] rounded-xl p-4">
+            <p className="text-sm text-[#718096]">
+              Funds will be transferred from your wallet to the treasury contract.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={loading}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-[#2D9F6C] to-[#34D399] text-white"
+              disabled={loading || !amount}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              Deposit
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+// Withdraw Modal Component
+const WithdrawModal = ({
+  isOpen,
+  onClose,
+  onSubmit,
+  loading,
+  maxAmount,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (amount: bigint) => void;
+  loading: boolean;
+  maxAmount: bigint;
+}) => {
+  const [amount, setAmount] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amountInOctas = BigInt(Math.floor(parseFloat(amount) * 100_000_000));
+    onSubmit(amountInOctas);
+  };
+
+  const handleMax = () => {
+    setAmount(formatAmount(maxAmount));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+      >
+        <h2 className="text-2xl font-bold text-[#1A1A2E] mb-6">Withdraw from Treasury</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-[#4A5568]">Amount (APT)</label>
+              <button type="button" onClick={handleMax} className="text-xs text-[#E85A4F] hover:underline">
+                Max: {formatAmount(maxAmount)} APT
+              </button>
+            </div>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              step="0.01"
+              max={Number(formatAmount(maxAmount))}
+              className="w-full px-4 py-3 rounded-xl border border-[#E8DED4] focus:border-[#E85A4F] focus:ring-1 focus:ring-[#E85A4F] outline-none transition-all"
+              required
+            />
+          </div>
+          <div className="bg-[#FAF6F1] rounded-xl p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-[#718096]">Available to withdraw</span>
+              <span className="font-mono font-semibold text-[#2D9F6C]">{formatAmount(maxAmount)} APT</span>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1" disabled={loading}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-[#E85A4F] to-[#F4A259] text-white"
+              disabled={loading || !amount}
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowUpRight className="w-4 h-4 mr-2" />}
+              Withdraw
+            </Button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
 
 export default function TreasuryPage() {
+  const { address, isConnected } = useAuth();
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-[#2D9F6C]/15 text-[#2D9F6C] border-[#2D9F6C]/30";
-      case "streaming":
-        return "bg-[#6BB3D9]/15 text-[#6BB3D9] border-[#6BB3D9]/30";
-      case "pending":
-        return "bg-[#F4A259]/15 text-[#E8A838] border-[#F4A259]/30";
-      case "failed":
-        return "bg-[#E85A4F]/15 text-[#E85A4F] border-[#E85A4F]/30";
-      default:
-        return "bg-[#718096]/15 text-[#718096] border-[#718096]/30";
+  // Blockchain data hooks
+  const { exists: treasuryExists, loading: existsLoading } = useTreasuryExists();
+  const { 
+    balanceInApt, 
+    availableBalance,
+    reserveBalance, 
+    loading: balanceLoading, 
+    refetch: refetchBalance 
+  } = useTreasuryBalance();
+  const { healthPercentage } = useTreasuryHealth();
+  const { deposit, withdraw, initializeTreasury, loading: opLoading } = useTreasuryOperations();
+  const { streams, loading: streamsLoading } = useEmployerStreams();
+
+  // Derive health status from health percentage
+  const healthStatus = useMemo(() => {
+    if (healthPercentage >= 75) return "Healthy";
+    if (healthPercentage >= 50) return "Good";
+    if (healthPercentage >= 25) return "Warning";
+    return "Critical";
+  }, [healthPercentage]);
+
+  // Calculate stats
+  const treasuryStats = useMemo(() => {
+    const activeStreams = streams.filter(s => s.status === 1);
+    const activeStreamValue = activeStreams.reduce((acc, s) => {
+      const endTime = BigInt(s.endTime);
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      const remaining = endTime > now ? endTime - now : BigInt(0);
+      return acc + (remaining > BigInt(0) ? s.ratePerSecond * remaining : BigInt(0));
+    }, BigInt(0));
+    
+    const pendingClaims = activeStreams.reduce((acc, s) => {
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      const startTime = BigInt(s.startTime);
+      const endTime = BigInt(s.endTime);
+      const elapsed = now > startTime ? now - startTime : BigInt(0);
+      const duration = endTime - startTime;
+      const effectiveElapsed = elapsed > duration ? duration : elapsed;
+      const earned = s.ratePerSecond * effectiveElapsed;
+      return acc + (earned > s.totalWithdrawn ? earned - s.totalWithdrawn : BigInt(0));
+    }, BigInt(0));
+
+    return [
+      {
+        label: "Total Balance",
+        value: `${balanceInApt.toFixed(4)} APT`,
+        change: healthStatus,
+        isPositive: healthPercentage > 50,
+        icon: Wallet,
+        color: "from-[#E85A4F] to-[#F4A259]",
+      },
+      {
+        label: "Active Streams",
+        value: `${formatAmount(activeStreamValue)} APT`,
+        change: `${activeStreams.length} streams`,
+        isPositive: true,
+        icon: Zap,
+        color: "from-[#2D9F6C] to-[#34D399]",
+      },
+      {
+        label: "Pending Claims",
+        value: `${formatAmount(pendingClaims)} APT`,
+        change: `${activeStreams.length} employees`,
+        isPositive: false,
+        icon: Clock,
+        color: "from-[#F4A259] to-[#FCD34D]",
+      },
+      {
+        label: "Available",
+        value: `${formatAmount(availableBalance)} APT`,
+        change: "Withdrawable",
+        isPositive: true,
+        icon: Shield,
+        color: "from-[#6BB3D9] to-[#93C5FD]",
+      },
+    ];
+  }, [balanceInApt, streams, availableBalance, healthPercentage, healthStatus]);
+
+  // Handle deposit
+  const handleDeposit = async (amount: bigint) => {
+    try {
+      const txHash = await deposit(amount);
+      if (txHash) {
+        setShowDepositModal(false);
+        refetchBalance();
+      }
+    } catch (error) {
+      console.error("Deposit failed:", error);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle size={14} />;
-      case "streaming":
-        return <Zap size={14} className="animate-pulse" />;
-      case "pending":
-        return <Clock size={14} />;
-      case "failed":
-        return <XCircle size={14} />;
-      default:
-        return null;
+  // Handle withdraw
+  const handleWithdraw = async (amount: bigint) => {
+    try {
+      const txHash = await withdraw(amount);
+      if (txHash) {
+        setShowWithdrawModal(false);
+        refetchBalance();
+      }
+    } catch (error) {
+      console.error("Withdrawal failed:", error);
     }
   };
 
-  const getTransactionIcon = (type: string) => {
-    switch (type) {
-      case "deposit":
-        return <ArrowDownRight size={18} className="text-[#2D9F6C]" />;
-      case "withdrawal":
-        return <ArrowUpRight size={18} className="text-[#E85A4F]" />;
-      case "stream":
-        return <Zap size={18} className="text-[#6BB3D9]" />;
-      case "claim":
-        return <Send size={18} className="text-[#F4A259]" />;
-      default:
-        return <DollarSign size={18} />;
+  // Handle initialize treasury
+  const handleInitializeTreasury = async () => {
+    try {
+      const initialDeposit = BigInt(100_000_000); // 1 APT
+      await initializeTreasury(initialDeposit);
+      refetchBalance();
+    } catch (error) {
+      console.error("Failed to initialize treasury:", error);
     }
   };
+
+  const isLoading = existsLoading || balanceLoading || streamsLoading;
+
+  // Not connected state
+  if (!isConnected) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <GlassCard className="p-8 text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-[#F4A259] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Wallet Not Connected</h2>
+          <p className="text-[#4A5568] mb-4">Please connect your wallet to manage your treasury.</p>
+        </GlassCard>
+      </div>
+    );
+  }
+
+  // Treasury not initialized state
+  if (!existsLoading && !treasuryExists) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <GlassCard className="p-8 text-center max-w-md">
+          <Wallet className="w-16 h-16 text-[#E85A4F] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-[#1A1A2E] mb-2">Initialize Your Treasury</h2>
+          <p className="text-[#4A5568] mb-6">
+            Set up your employer treasury to start managing funds and creating wage streams.
+          </p>
+          <Button
+            onClick={handleInitializeTreasury}
+            disabled={opLoading}
+            className="bg-gradient-to-r from-[#E85A4F] to-[#F4A259] text-white px-8 py-3"
+          >
+            {opLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            Initialize Treasury (1 APT)
+          </Button>
+        </GlassCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Modals */}
+      <AnimatePresence>
+        {showDepositModal && (
+          <DepositModal
+            isOpen={showDepositModal}
+            onClose={() => setShowDepositModal(false)}
+            onSubmit={handleDeposit}
+            loading={opLoading}
+          />
+        )}
+        {showWithdrawModal && (
+          <WithdrawModal
+            isOpen={showWithdrawModal}
+            onClose={() => setShowWithdrawModal(false)}
+            onSubmit={handleWithdraw}
+            loading={opLoading}
+            maxAmount={availableBalance}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -193,384 +371,210 @@ export default function TreasuryPage() {
         className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
       >
         <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-[#1A1A2E]">
-                Treasury Management
-              </h1>
-              <p className="text-[#4A5568] mt-1">
-                Manage funds, deposits, and payroll streams
+          <h1 className="text-3xl lg:text-4xl font-bold text-[#1A1A2E]">Treasury Management</h1>
+          <p className="text-[#4A5568] mt-1 flex items-center gap-2">
+            <span className="font-mono text-sm">{formatAddress(address || "")}</span>
+            <a href={getExplorerUrl(address || "", "account")} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3 h-3 text-[#718096] hover:text-[#E85A4F]" />
+            </a>
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="ghost" size="icon" onClick={() => refetchBalance()} disabled={isLoading}>
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowWithdrawModal(true)}
+            className="border-[#E8DED4] text-[#4A5568] hover:bg-[#F5EDE6]"
+            disabled={availableBalance === BigInt(0)}
+          >
+            <ArrowUpRight size={18} className="mr-2" />
+            Withdraw
+          </Button>
+          <Button 
+            onClick={() => setShowDepositModal(true)}
+            className="bg-gradient-to-r from-[#2D9F6C] to-[#34D399] text-white"
+          >
+            <Plus size={18} className="mr-2" />
+            Deposit Funds
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Stats Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {treasuryStats.map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <GlassCard className="p-5" variant="default">
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
+                  <stat.icon size={24} className="text-white" />
+                </div>
+                <span
+                  className={`text-xs font-medium px-2 py-1 rounded-full ${
+                    stat.isPositive ? "bg-[#2D9F6C]/10 text-[#2D9F6C]" : "bg-[#F4A259]/10 text-[#E8A838]"
+                  }`}
+                >
+                  {stat.change}
+                </span>
+              </div>
+              <p className="text-sm text-[#4A5568]">{stat.label}</p>
+              <p className="text-2xl lg:text-3xl font-bold text-[#1A1A2E] mt-1 font-mono">
+                {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : stat.value}
               </p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowWithdrawModal(true)}
-                className="border-[#E8DED4] text-[#4A5568] hover:bg-[#F5EDE6]"
-              >
-                <ArrowUpRight size={18} className="mr-2" />
-                Withdraw
-              </Button>
-              <Button onClick={() => setShowDepositModal(true)}>
-                <Plus size={18} className="mr-2" />
-                Deposit Funds
-              </Button>
-            </div>
+            </GlassCard>
           </motion.div>
+        ))}
+      </motion.div>
 
-          {/* Stats Grid */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-          >
-            {treasuryStats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <GlassCard className="p-5" variant="default">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
-                      <stat.icon size={24} className="text-white" />
-                    </div>
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        stat.isPositive
-                          ? "bg-[#2D9F6C]/10 text-[#2D9F6C]"
-                          : "bg-[#F4A259]/10 text-[#E8A838]"
-                      }`}
-                    >
-                      {stat.change}
-                    </span>
-                  </div>
-                  <p className="text-sm text-[#4A5568]">{stat.label}</p>
-                  <p className="text-2xl lg:text-3xl font-bold text-[#1A1A2E] mt-1">
-                    {stat.value}
-                  </p>
-                </GlassCard>
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Treasury Health */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-2"
+        >
+          <GlassCard className="p-6" variant="default">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-[#1A1A2E]">Treasury Health</h2>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                healthPercentage > 50 ? 'bg-[#2D9F6C]/10 text-[#2D9F6C]' :
+                healthPercentage > 20 ? 'bg-[#F4A259]/10 text-[#F4A259]' :
+                'bg-[#E85A4F]/10 text-[#E85A4F]'
+              }`}>
+                {healthStatus}
+              </span>
+            </div>
+
+            {/* Health Bar */}
+            <div className="mb-8">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-[#718096]">Fund Coverage</span>
+                <span className="font-mono font-semibold">{healthPercentage.toFixed(1)}%</span>
+              </div>
+              <div className="h-4 bg-[#E8DED4] rounded-full overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full ${
+                    healthPercentage > 50 ? 'bg-gradient-to-r from-[#2D9F6C] to-[#34D399]' :
+                    healthPercentage > 20 ? 'bg-gradient-to-r from-[#F4A259] to-[#FCD34D]' :
+                    'bg-gradient-to-r from-[#E85A4F] to-[#F4A259]'
+                  }`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(healthPercentage, 100)}%` }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                />
+              </div>
+            </div>
+
+            {/* Breakdown */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-[#FAF6F1] rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-4 h-4 text-[#2D9F6C]" />
+                  <span className="text-sm text-[#718096]">Total Balance</span>
+                </div>
+                <p className="text-xl font-bold font-mono text-[#1A1A2E]">{balanceInApt.toFixed(4)} APT</p>
+              </div>
+              <div className="p-4 bg-[#FAF6F1] rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-4 h-4 text-[#6BB3D9]" />
+                  <span className="text-sm text-[#718096]">Reserve</span>
+                </div>
+                <p className="text-xl font-bold font-mono text-[#1A1A2E]">{formatAmount(reserveBalance)} APT</p>
+              </div>
+              <div className="p-4 bg-[#FAF6F1] rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-[#F4A259]" />
+                  <span className="text-sm text-[#718096]">Available</span>
+                </div>
+                <p className="text-xl font-bold font-mono text-[#1A1A2E]">{formatAmount(availableBalance)} APT</p>
+              </div>
+            </div>
+          </GlassCard>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <GlassCard className="p-6" variant="default">
+            <h2 className="text-xl font-bold text-[#1A1A2E] mb-6">Quick Actions</h2>
+            
+            <div className="space-y-3">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={() => setShowDepositModal(true)}
+                  className="w-full h-14 justify-start bg-gradient-to-r from-[#2D9F6C] to-[#34D399] text-white"
+                >
+                  <ArrowDownRight className="w-5 h-5 mr-3" />
+                  Deposit Funds
+                </Button>
               </motion.div>
-            ))}
-          </motion.div>
+              
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={() => setShowWithdrawModal(true)}
+                  disabled={availableBalance === BigInt(0)}
+                  variant="outline"
+                  className="w-full h-14 justify-start border-[#E8DED4] hover:bg-[#F5EDE6]"
+                >
+                  <ArrowUpRight className="w-5 h-5 mr-3 text-[#E85A4F]" />
+                  Withdraw Available
+                </Button>
+              </motion.div>
 
-          {/* Main Content Grid */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Transactions Panel */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="lg:col-span-2"
-            >
-              <GlassCard className="p-6" variant="default">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-[#1A1A2E]">Recent Transactions</h2>
-                  <Button variant="ghost" className="text-[#4A5568] hover:text-[#1A1A2E]">
-                    View All
-                    <ArrowRight size={16} className="ml-2" />
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {recentTransactions.map((tx, index) => (
-                    <motion.div
-                      key={tx.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 + index * 0.05 }}
-                      className="flex items-center justify-between p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50 hover:border-[#E8DED4] transition-colors"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                          {getTransactionIcon(tx.type)}
-                        </div>
-                        <div>
-                          <p className="font-medium text-[#1A1A2E]">{tx.description}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-[#718096]">{tx.time}</span>
-                            <span className="text-xs text-[#718096]">•</span>
-                            <button className="flex items-center gap-1 text-xs text-[#6BB3D9] hover:text-[#2B4570] transition-colors">
-                              {tx.hash}
-                              <ExternalLink size={10} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`font-bold font-mono ${
-                          tx.type === "deposit" ? "text-[#2D9F6C]" : 
-                          tx.type === "withdrawal" ? "text-[#E85A4F]" : "text-[#1A1A2E]"
-                        }`}>
-                          {tx.type === "deposit" ? "+" : tx.type === "withdrawal" ? "-" : ""}
-                          {tx.amount}
-                        </p>
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border mt-1 ${getStatusColor(tx.status)}`}>
-                          {getStatusIcon(tx.status)}
-                          {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </GlassCard>
-            </motion.div>
-
-            {/* Right Sidebar */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Connected Wallets */}
-              <GlassCard className="p-6" variant="default">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-[#1A1A2E]">Funding Sources</h3>
-                  <Button variant="ghost" size="sm" className="text-[#6BB3D9]">
-                    <Plus size={16} className="mr-1" />
-                    Add
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {fundingSources.map((source) => (
-                    <div
-                      key={source.id}
-                      className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E85A4F] to-[#F4A259] flex items-center justify-center">
-                            <Wallet size={16} className="text-white" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-[#1A1A2E] text-sm">{source.name}</p>
-                            <p className="text-xs text-[#718096]">{source.type}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 text-[#2D9F6C]">
-                          <div className="w-2 h-2 rounded-full bg-[#2D9F6C] animate-pulse" />
-                          <span className="text-xs font-medium">Connected</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#E8DED4]/50">
-                        <span className="text-lg font-bold text-[#1A1A2E]">{source.balance}</span>
-                        <button className="flex items-center gap-1 text-xs text-[#718096] hover:text-[#4A5568] transition-colors">
-                          {source.address}
-                          <Copy size={12} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
-
-              {/* Quick Actions */}
-              <GlassCard className="p-6" variant="default">
-                <h3 className="font-bold text-[#1A1A2E] mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50 hover:border-[#E85A4F]/30 hover:bg-[#E85A4F]/5 transition-all group">
-                    <Send size={20} className="text-[#E85A4F] mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="text-sm font-medium text-[#1A1A2E]">Send</p>
-                  </button>
-                  <button className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50 hover:border-[#2D9F6C]/30 hover:bg-[#2D9F6C]/5 transition-all group">
-                    <Download size={20} className="text-[#2D9F6C] mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="text-sm font-medium text-[#1A1A2E]">Receive</p>
-                  </button>
-                  <button className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50 hover:border-[#6BB3D9]/30 hover:bg-[#6BB3D9]/5 transition-all group">
-                    <RefreshCw size={20} className="text-[#6BB3D9] mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="text-sm font-medium text-[#1A1A2E]">Swap</p>
-                  </button>
-                  <button className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50 hover:border-[#F4A259]/30 hover:bg-[#F4A259]/5 transition-all group">
-                    <Lock size={20} className="text-[#F4A259] mb-2 group-hover:scale-110 transition-transform" />
-                    <p className="text-sm font-medium text-[#1A1A2E]">Lock</p>
-                  </button>
-                </div>
-              </GlassCard>
-
-              {/* Fund Allocation */}
-              <GlassCard className="p-6" variant="default">
-                <h3 className="font-bold text-[#1A1A2E] mb-4">Fund Allocation</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: "Active Streams", value: 66, color: "bg-[#2D9F6C]" },
-                    { label: "Reserved", value: 19, color: "bg-[#6BB3D9]" },
-                    { label: "Pending", value: 15, color: "bg-[#F4A259]" },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-[#4A5568]">{item.label}</span>
-                        <span className="text-sm font-semibold text-[#1A1A2E]">{item.value}%</span>
-                      </div>
-                      <div className="h-2 bg-[#F5EDE6] rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${item.value}%` }}
-                          transition={{ duration: 1, delay: 0.5 }}
-                          className={`h-full rounded-full ${item.color}`}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
-            </motion.div>
-          </div>
-
-      {/* Deposit Modal */}
-      <AnimatePresence>
-        {showDepositModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-[#1A1A2E]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowDepositModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-[#E8DED4]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#2D9F6C] to-[#34D399] flex items-center justify-center">
-                  <ArrowDownRight size={24} className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-[#1A1A2E]">Deposit Funds</h2>
-                  <p className="text-sm text-[#718096]">Add funds to your treasury</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Amount (USDC)</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] text-lg font-mono placeholder:text-[#718096] focus:outline-none focus:border-[#2D9F6C]/50"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">From Wallet</label>
-                  <select className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] focus:outline-none focus:border-[#2D9F6C]/50">
-                    <option>Primary Treasury (85,000 USDC)</option>
-                    <option>Backup Reserve (39,589 USDC)</option>
-                  </select>
-                </div>
-
-                <div className="p-4 rounded-xl bg-[#FAF6F1] border border-[#E8DED4]/50">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#718096]">Network Fee</span>
-                    <span className="text-[#1A1A2E]">~0.001 APT</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mt-2">
-                    <span className="text-[#718096]">Estimated Time</span>
-                    <span className="text-[#1A1A2E]">~2 seconds</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                 <Button
                   variant="outline"
-                  className="flex-1 border-[#E8DED4] text-[#4A5568]"
-                  onClick={() => setShowDepositModal(false)}
+                  className="w-full h-14 justify-start border-[#E8DED4] hover:bg-[#F5EDE6]"
                 >
-                  Cancel
+                  <PieChart className="w-5 h-5 mr-3 text-[#6BB3D9]" />
+                  View Analytics
                 </Button>
-                <Button className="flex-1 bg-[#2D9F6C] hover:bg-[#238b5a]">
-                  <Plus size={18} className="mr-2" />
-                  Deposit
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
 
-      {/* Withdraw Modal */}
-      <AnimatePresence>
-        {showWithdrawModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-[#1A1A2E]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowWithdrawModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-[#E8DED4]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E85A4F] to-[#F4A259] flex items-center justify-center">
-                  <ArrowUpRight size={24} className="text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-[#1A1A2E]">Withdraw Funds</h2>
-                  <p className="text-sm text-[#718096]">Transfer funds from treasury</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Amount (USDC)</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="0.00"
-                      className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] text-lg font-mono placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                    />
+            {/* Active Streams Summary */}
+            <div className="mt-6 pt-6 border-t border-[#E8DED4]">
+              <h3 className="text-sm font-semibold text-[#1A1A2E] mb-4">Active Streams</h3>
+              <div className="space-y-3">
+                {streams.filter(s => s.status === 1).slice(0, 3).map((stream, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-[#FAF6F1] rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#6BB3D9] to-[#2B4570] flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#1A1A2E]">{formatAddress(stream.employee)}</p>
+                        <p className="text-xs text-[#718096]">{formatAmount(stream.ratePerSecond * BigInt(86400))} APT/day</p>
+                      </div>
+                    </div>
+                    <Zap className="w-4 h-4 text-[#2D9F6C] animate-pulse" />
                   </div>
-                  <p className="text-xs text-[#718096] mt-2">Available: 124,589 USDC</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#4A5568] mb-2">Destination Wallet</label>
-                  <input
-                    type="text"
-                    placeholder="Enter wallet address"
-                    className="w-full px-4 py-3 rounded-xl bg-[#FAF6F1] border border-[#E8DED4] text-[#1A1A2E] placeholder:text-[#718096] focus:outline-none focus:border-[#E85A4F]/50"
-                  />
-                </div>
-
-                <div className="p-4 rounded-xl bg-[#E85A4F]/5 border border-[#E85A4F]/20">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-[#E85A4F] mt-0.5" />
-                    <p className="text-sm text-[#E85A4F]">
-                      Make sure to verify the wallet address before withdrawing.
-                    </p>
-                  </div>
-                </div>
+                ))}
+                {streams.filter(s => s.status === 1).length === 0 && (
+                  <p className="text-sm text-[#718096] text-center py-4">No active streams</p>
+                )}
               </div>
-
-              <div className="flex gap-3 mt-6">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-[#E8DED4] text-[#4A5568]"
-                  onClick={() => setShowWithdrawModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button className="flex-1">
-                  <ArrowUpRight size={18} className="mr-2" />
-                  Withdraw
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          </GlassCard>
+        </motion.div>
+      </div>
     </div>
   );
 }

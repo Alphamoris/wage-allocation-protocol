@@ -42,15 +42,6 @@ export interface PhotonRegistryStats {
   activeCampaigns: bigint;
 }
 
-// Campaign Status Constants
-export const CAMPAIGN_STATUS = {
-  DRAFT: 0,
-  ACTIVE: 1,
-  PAUSED: 2,
-  COMPLETED: 3,
-  CANCELLED: 4,
-} as const;
-
 // Reward Type Constants
 export const REWARD_TYPE = {
   FIXED: 0,
@@ -74,7 +65,7 @@ export const TRIGGER_TYPE = {
 /**
  * Get registry statistics for photon rewards
  */
-export const getRegistryStats = async (
+export const getPhotonRegistryStats = async (
   registryAddr: string
 ): Promise<PhotonRegistryStats | null> => {
   try {
