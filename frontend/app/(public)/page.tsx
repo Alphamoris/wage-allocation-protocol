@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { WageCounter } from "@/components/shared/WageCounter";
+import { DemoWageCounter } from "@/components/shared/DemoWageCounter";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { 
   ArrowRight, ShieldCheck, Zap, Clock, Users, TrendingUp, Wallet, 
@@ -292,7 +292,7 @@ export default function LandingPage() {
               <Card3D className="relative">
                 <div className="counter-box p-1 rounded-3xl">
                   <div className="bg-white rounded-3xl shadow-lg">
-                    <WageCounter />
+                    <DemoWageCounter />
                   </div>
                 </div>
               </Card3D>

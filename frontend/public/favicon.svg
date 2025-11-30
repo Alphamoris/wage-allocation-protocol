@@ -1,0 +1,20 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="favGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E85A4F" />
+      <stop offset="50%" stop-color="#F4A259" />
+      <stop offset="100%" stop-color="#F2B5D4" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="url(#favGradient)"/>
+  
+  <!-- W Logo - Optimized for small size -->
+  <path d="M6 8 L11 24 L16 14 L21 24 L26 8" 
+        stroke="white" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" 
+        fill="none"/>
+</svg>

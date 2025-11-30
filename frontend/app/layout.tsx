@@ -67,10 +67,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml", sizes: "512x512" },
     ],
-    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.svg",
+    apple: "/apple-touch-icon.svg",
   },
   manifest: "/manifest.json",
   category: "finance",
