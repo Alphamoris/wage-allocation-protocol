@@ -30,7 +30,7 @@ import {
   useTreasuryOperations
 } from "@/hooks/useTreasury";
 import { useEmployerStreams } from "@/hooks/useWageStreaming";
-import { formatAmount, formatAddress } from "@/types";
+import { formatAmount, formatAddress, getActualAmount } from "@/types";
 import { getExplorerUrl } from "@/lib/aptos/config";
 
 // Deposit Modal Component
@@ -212,13 +212,15 @@ export default function TreasuryPage() {
   // Calculate stats
   const treasuryStats = useMemo(() => {
     const activeStreams = streams.filter(s => s.status === 1);
+    // Apply PRECISION: remaining value = (ratePerSecond * remaining) / PRECISION
     const activeStreamValue = activeStreams.reduce((acc, s) => {
       const endTime = BigInt(s.endTime);
       const now = BigInt(Math.floor(Date.now() / 1000));
       const remaining = endTime > now ? endTime - now : BigInt(0);
-      return acc + (remaining > BigInt(0) ? s.ratePerSecond * remaining : BigInt(0));
+      return acc + (remaining > BigInt(0) ? getActualAmount(s.ratePerSecond, remaining) : BigInt(0));
     }, BigInt(0));
     
+    // Apply PRECISION: pending claims = (ratePerSecond * elapsed) / PRECISION - withdrawn
     const pendingClaims = activeStreams.reduce((acc, s) => {
       const now = BigInt(Math.floor(Date.now() / 1000));
       const startTime = BigInt(s.startTime);
@@ -226,7 +228,7 @@ export default function TreasuryPage() {
       const elapsed = now > startTime ? now - startTime : BigInt(0);
       const duration = endTime - startTime;
       const effectiveElapsed = elapsed > duration ? duration : elapsed;
-      const earned = s.ratePerSecond * effectiveElapsed;
+      const earned = getActualAmount(s.ratePerSecond, effectiveElapsed);
       return acc + (earned > s.totalWithdrawn ? earned - s.totalWithdrawn : BigInt(0));
     }, BigInt(0));
 
@@ -561,7 +563,7 @@ export default function TreasuryPage() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-[#1A1A2E]">{formatAddress(stream.employee)}</p>
-                        <p className="text-xs text-[#718096]">{formatAmount(stream.ratePerSecond * BigInt(86400))} APT/day</p>
+                        <p className="text-xs text-[#718096]">{formatAmount(getActualAmount(stream.ratePerSecond, BigInt(86400)))} APT/day</p>
                       </div>
                     </div>
                     <Zap className="w-4 h-4 text-[#2D9F6C] animate-pulse" />

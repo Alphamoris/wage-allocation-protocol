@@ -216,10 +216,27 @@ export const parseAptosError = (error: unknown): {
   }
   
   const errorStr = JSON.stringify(error);
+  const errorMessage = (error as Error)?.message || '';
   
-  // Check for resource not found (VM error 4008)
-  if (errorStr.includes('4008') || errorStr.includes('Failed to borrow global resource')) {
+  // Check for resource not found (various patterns)
+  if (
+    errorStr.includes('4008') || 
+    errorStr.includes('Failed to borrow global resource') ||
+    errorStr.includes('Resource not found') ||
+    errorStr.includes('resource_not_found') ||
+    errorStr.includes('RESOURCE_NOT_FOUND') ||
+    errorMessage.includes('Resource not found') ||
+    errorMessage.includes('resource_not_found') ||
+    // Handle getAccountResource errors when resource doesn't exist
+    errorStr.includes('error_code') && errorStr.includes('account_not_found') ||
+    errorStr.includes('Table Item not found')
+  ) {
     return { code: 4008, message: 'Resource not found', isExpected: true, shouldLog: false };
+  }
+  
+  // Check for account not found
+  if (errorStr.includes('account_not_found') || errorStr.includes('Account not found')) {
+    return { code: 4008, message: 'Account not found', isExpected: true, shouldLog: false };
   }
   
   // Check for Move abort errors (vm_error_code field or hex in message)
@@ -245,7 +262,7 @@ export const parseAptosError = (error: unknown): {
   }
   
   // Unknown error - should be logged
-  return { code: errorCode, message: 'Unknown error', isExpected: false, shouldLog: true };
+  return { code: errorCode, message: errorMessage || 'Unknown error', isExpected: false, shouldLog: true };
 };
 
 /**

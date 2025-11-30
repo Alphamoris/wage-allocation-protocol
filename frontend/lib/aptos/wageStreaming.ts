@@ -220,31 +220,64 @@ export const getEmployerStreams = async (employerAddress: string): Promise<strin
 
 /**
  * Get all streams for an employee  
- * Reads the EmployeeStreams resource from the employee's address
+ * Since EmployeeStreams resource is not created by the contract,
+ * we need to read StreamStore and filter by employee address
  */
 export const getEmployeeStreams = async (employeeAddress: string): Promise<string[]> => {
   try {
-    // EmployeeStreams resource is stored at the employee's address
-    const resource = await aptos.getAccountResource<{
-      active_stream_ids: string[];
-      total_earnings: string;
-      total_withdrawals: string;
-      last_activity: string;
+    // First, try to read the StreamStore from the contract address
+    const streamStoreResource = await aptos.getAccountResource<{
+      streams: Array<{
+        stream_id: string;
+        employer: string;
+        employee: string;
+        rate_per_second: string;
+        total_deposited: string;
+        total_withdrawn: string;
+        start_time: string;
+        end_time: string;
+        status: number;
+        job_description: string;
+        compliance_verified: boolean;
+        pause_time: string;
+        total_pause_duration: string;
+        last_withdrawal_time: string;
+      }>;
     }>({
-      accountAddress: employeeAddress,
-      resourceType: `${MODULES.WAGE_STREAMING}::EmployeeStreams`,
+      accountAddress: CONTRACT_ADDRESS,
+      resourceType: `${MODULES.WAGE_STREAMING}::StreamStore`,
     });
     
-    return resource.active_stream_ids || [];
+    // Filter streams where the employee matches and stream is active/paused
+    const employeeStreams = streamStoreResource.streams.filter(
+      s => s.employee.toLowerCase() === employeeAddress.toLowerCase() && 
+           (s.status === 1 || s.status === 2) // Active or Paused
+    );
+    
+    return employeeStreams.map(s => s.stream_id);
   } catch (error) {
-    // Resource doesn't exist means no streams for this employee
-    if (isExpectedError(error)) {
+    // If StreamStore doesn't exist, try the old method as fallback
+    try {
+      const resource = await aptos.getAccountResource<{
+        active_stream_ids: string[];
+        total_earnings: string;
+        total_withdrawals: string;
+        last_activity: string;
+      }>({
+        accountAddress: employeeAddress,
+        resourceType: `${MODULES.WAGE_STREAMING}::EmployeeStreams`,
+      });
+      
+      return resource.active_stream_ids || [];
+    } catch {
+      // Resource doesn't exist - this is expected for new employees
+      const parsedError = parseAptosError(error);
+      if (parsedError.isExpected || !parsedError.shouldLog) {
+        return [];
+      }
+      console.error("Error fetching employee streams:", parsedError.message);
       return [];
     }
-    if (shouldLogError(error)) {
-      console.error("Error fetching employee streams:", parseAptosError(error).message);
-    }
-    return [];
   }
 };
 
