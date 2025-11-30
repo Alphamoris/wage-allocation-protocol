@@ -1,5 +1,8 @@
-import { aptos, MODULES, CONTRACT_ADDRESS, STREAM_STATUS } from "./config";
+import { aptos, MODULES, CONTRACT_ADDRESS, STREAM_STATUS, shouldLogError, parseAptosError, isExpectedError } from "./config";
 import { InputTransactionData } from "@aptos-labs/wallet-adapter-react";
+
+// Default gas settings for transactions
+const DEFAULT_MAX_GAS = 200000;
 
 // Types
 export interface StreamInfo {
@@ -41,6 +44,7 @@ export const STREAM_STATUS_CODES = {
 
 /**
  * Get stream information by stream ID
+ * Returns null if the stream doesn't exist
  */
 export const getStreamInfo = async (
   registryAddr: string,
@@ -69,13 +73,16 @@ export const getStreamInfo = async (
       status,
     };
   } catch (error) {
-    console.error("Error fetching stream info:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching stream info:", parseAptosError(error).message);
+    }
     return null;
   }
 };
 
 /**
  * Get withdrawable balance for a stream
+ * Returns 0 if the stream doesn't exist
  */
 export const getWithdrawableBalance = async (
   registryAddr: string,
@@ -90,13 +97,16 @@ export const getWithdrawableBalance = async (
     });
     return BigInt(result[0] as string);
   } catch (error) {
-    console.error("Error fetching withdrawable balance:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching withdrawable balance:", parseAptosError(error).message);
+    }
     return BigInt(0);
   }
 };
 
 /**
  * Get registry statistics
+ * Returns null if the registry hasn't been initialized
  */
 export const getRegistryStats = async (
   registryAddr: string
@@ -119,7 +129,9 @@ export const getRegistryStats = async (
       accumulatedFees: BigInt(accumulatedFees),
     };
   } catch (error) {
-    console.error("Error fetching registry stats:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching registry stats:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -137,7 +149,9 @@ export const hasActiveStreams = async (employeeAddr: string): Promise<boolean> =
     });
     return result[0] as boolean;
   } catch (error) {
-    console.error("Error checking active streams:", error);
+    if (shouldLogError(error)) {
+      console.error("Error checking active streams:", parseAptosError(error).message);
+    }
     return false;
   }
 };
@@ -177,52 +191,72 @@ export const getStreamDetails = async (
 
 /**
  * Get all streams for an employer
+ * Reads the EmployerStreams resource from the employer's address
  */
 export const getEmployerStreams = async (employerAddress: string): Promise<string[]> => {
   try {
-    const result = await aptos.view({
-      payload: {
-        function: `${MODULES.WAGE_STREAMING}::get_employer_streams`,
-        functionArguments: [employerAddress],
-      },
+    // EmployerStreams resource is stored at the employer's address
+    const resource = await aptos.getAccountResource<{
+      stream_ids: string[];
+      total_allocated: string;
+      total_disbursed: string;
+    }>({
+      accountAddress: employerAddress,
+      resourceType: `${MODULES.WAGE_STREAMING}::EmployerStreams`,
     });
-    return result[0] as string[];
+    
+    return resource.stream_ids || [];
   } catch (error) {
-    console.error("Error fetching employer streams:", error);
+    // Resource doesn't exist means no streams created yet
+    if (isExpectedError(error)) {
+      return [];
+    }
+    if (shouldLogError(error)) {
+      console.error("Error fetching employer streams:", parseAptosError(error).message);
+    }
     return [];
   }
 };
 
 /**
- * Get all streams for an employee
+ * Get all streams for an employee  
+ * Reads the EmployeeStreams resource from the employee's address
  */
 export const getEmployeeStreams = async (employeeAddress: string): Promise<string[]> => {
   try {
-    const result = await aptos.view({
-      payload: {
-        function: `${MODULES.WAGE_STREAMING}::get_employee_streams`,
-        functionArguments: [employeeAddress],
-      },
+    // EmployeeStreams resource is stored at the employee's address
+    const resource = await aptos.getAccountResource<{
+      active_stream_ids: string[];
+      total_earnings: string;
+      total_withdrawals: string;
+      last_activity: string;
+    }>({
+      accountAddress: employeeAddress,
+      resourceType: `${MODULES.WAGE_STREAMING}::EmployeeStreams`,
     });
-    return result[0] as string[];
+    
+    return resource.active_stream_ids || [];
   } catch (error) {
-    console.error("Error fetching employee streams:", error);
+    // Resource doesn't exist means no streams for this employee
+    if (isExpectedError(error)) {
+      return [];
+    }
+    if (shouldLogError(error)) {
+      console.error("Error fetching employee streams:", parseAptosError(error).message);
+    }
     return [];
   }
 };
 
 /**
  * Check if a stream exists
+ * NOTE: This view function is not currently available in the deployed contract.
  */
 export const streamExists = async (streamId: string): Promise<boolean> => {
+  // Try to get stream info instead - if it returns data, stream exists
   try {
-    const result = await aptos.view({
-      payload: {
-        function: `${MODULES.WAGE_STREAMING}::stream_exists`,
-        functionArguments: [streamId],
-      },
-    });
-    return result[0] as boolean;
+    const result = await getStreamInfo(CONTRACT_ADDRESS, Number(streamId));
+    return result !== null;
   } catch (error) {
     console.error("Error checking stream existence:", error);
     return false;
@@ -246,6 +280,9 @@ export const createStreamPayload = (
       function: `${MODULES.WAGE_STREAMING}::create_stream`,
       functionArguments: [registryAddr, employee, totalAmount.toString(), durationSeconds, jobDescription],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -260,6 +297,9 @@ export const pauseStreamPayload = (
     data: {
       function: `${MODULES.WAGE_STREAMING}::pause_stream`,
       functionArguments: [registryAddr, streamId],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };
@@ -276,6 +316,9 @@ export const resumeStreamPayload = (
       function: `${MODULES.WAGE_STREAMING}::resume_stream`,
       functionArguments: [registryAddr, streamId],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -290,6 +333,9 @@ export const terminateStreamPayload = (
     data: {
       function: `${MODULES.WAGE_STREAMING}::terminate_stream`,
       functionArguments: [registryAddr, streamId],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };
@@ -306,6 +352,9 @@ export const withdrawWagesPayload = (
       function: `${MODULES.WAGE_STREAMING}::withdraw_wages`,
       functionArguments: [registryAddr, streamId],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -317,6 +366,9 @@ export const withdrawAllPayload = (registryAddr: string): InputTransactionData =
     data: {
       function: `${MODULES.WAGE_STREAMING}::withdraw_all`,
       functionArguments: [registryAddr],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };
@@ -333,6 +385,9 @@ export const setDisputeStatusPayload = (
     data: {
       function: `${MODULES.WAGE_STREAMING}::set_dispute_status`,
       functionArguments: [registryAddr, streamId, disputeStatus],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };

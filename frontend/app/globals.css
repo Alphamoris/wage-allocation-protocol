@@ -105,6 +105,51 @@
   scroll-behavior: smooth;
 }
 
+/* ========================================
+   CURSOR STYLES FOR INTERACTIVE ELEMENTS
+   ======================================== */
+
+a {
+  cursor: pointer;
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled) {
+  cursor: pointer;
+}
+
+input:disabled,
+button:disabled,
+[disabled] {
+  cursor: not-allowed;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+textarea,
+select {
+  cursor: text;
+}
+
+select {
+  cursor: pointer;
+}
+
+label {
+  cursor: pointer;
+}
+
+[onclick],
+[data-clickable="true"] {
+  cursor: pointer;
+}
+
 body {
   background-color: var(--background);
   color: var(--foreground);

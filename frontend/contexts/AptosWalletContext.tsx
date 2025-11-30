@@ -8,6 +8,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import {
   AptosWalletAdapterProvider,
@@ -104,19 +105,26 @@ export const useAuth = () => {
     localStorage.removeItem("wap_user_role");
   }, [disconnect, setRole]);
 
-  // Get account balance
+  // Store address in ref to avoid callback recreation
+  const addressRef = useRef<string | null>(null);
+  addressRef.current = account?.address?.toString() || null;
+
+  // Get account balance - stable callback that uses ref
   const getBalance = useCallback(async (): Promise<bigint> => {
-    if (!account?.address) return BigInt(0);
+    const currentAddress = addressRef.current;
+    if (!currentAddress) return BigInt(0);
     try {
       const resources = await aptos.getAccountResource({
-        accountAddress: account.address.toString(),
+        accountAddress: currentAddress,
         resourceType: "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
       });
-      return BigInt((resources as { coin: { value: string } }).coin.value);
-    } catch {
+      const value = (resources as { coin: { value: string } }).coin.value;
+      return BigInt(value);
+    } catch (error) {
+      console.error("Error fetching balance for", currentAddress, error);
       return BigInt(0);
     }
-  }, [account?.address]);
+  }, []);
 
   return {
     isAuthenticated,

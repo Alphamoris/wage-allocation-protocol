@@ -40,22 +40,44 @@ const FloatingOrb = ({ delay, duration, size, color, position }: {
 );
 
 // Animated particles - Light theme version
+// Using pre-computed fixed values to avoid hydration mismatch
+const PARTICLE_POSITIONS = [
+  { x: 5, delay: 0.2, duration: 12 },
+  { x: 15, delay: 1.5, duration: 14 },
+  { x: 25, delay: 0.8, duration: 11 },
+  { x: 35, delay: 2.1, duration: 15 },
+  { x: 45, delay: 0.5, duration: 13 },
+  { x: 55, delay: 1.8, duration: 16 },
+  { x: 65, delay: 0.3, duration: 12 },
+  { x: 75, delay: 2.5, duration: 14 },
+  { x: 85, delay: 1.2, duration: 11 },
+  { x: 95, delay: 0.9, duration: 15 },
+  { x: 10, delay: 1.1, duration: 13 },
+  { x: 20, delay: 2.3, duration: 16 },
+  { x: 30, delay: 0.6, duration: 12 },
+  { x: 40, delay: 1.7, duration: 14 },
+  { x: 50, delay: 0.4, duration: 11 },
+  { x: 60, delay: 2.0, duration: 15 },
+  { x: 70, delay: 1.4, duration: 13 },
+  { x: 80, delay: 0.7, duration: 16 },
+  { x: 90, delay: 2.2, duration: 12 },
+  { x: 100, delay: 1.0, duration: 14 },
+];
+
 const Particle = ({ index }: { index: number }) => {
-  const randomX = Math.random() * 100;
-  const randomDelay = Math.random() * 5;
-  const randomDuration = 10 + Math.random() * 10;
+  const config = PARTICLE_POSITIONS[index % PARTICLE_POSITIONS.length];
   
   return (
     <motion.div
       className="absolute w-1 h-1 bg-[#E85A4F]/20 rounded-full"
-      style={{ left: `${randomX}%`, top: "100%" }}
+      style={{ left: `${config.x}%`, top: "100%" }}
       animate={{
         y: [0, -1000],
         opacity: [0, 0.6, 0],
       }}
       transition={{
-        duration: randomDuration,
-        delay: randomDelay,
+        duration: config.duration,
+        delay: config.delay,
         repeat: Infinity,
         ease: "linear",
       }}

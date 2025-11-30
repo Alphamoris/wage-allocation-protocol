@@ -1,5 +1,8 @@
-import { aptos, MODULES, CONTRACT_ADDRESS } from "./config";
+import { aptos, MODULES, CONTRACT_ADDRESS, shouldLogError, parseAptosError } from "./config";
 import { InputTransactionData } from "@aptos-labs/wallet-adapter-react";
+
+// Default gas settings for transactions
+const DEFAULT_MAX_GAS = 200000;
 
 // Types
 export interface TreasuryInfo {
@@ -78,7 +81,27 @@ export const treasuryExists = async (employerAddr: string): Promise<boolean> => 
 };
 
 /**
+ * Check if the treasury registry is initialized at a given address
+ */
+export const registryExists = async (registryAddr: string): Promise<boolean> => {
+  try {
+    const result = await aptos.view({
+      payload: {
+        function: `${MODULES.EMPLOYER_TREASURY}::registry_exists`,
+        functionArguments: [registryAddr],
+      },
+    });
+    return result[0] as boolean;
+  } catch (error) {
+    // If the view function doesn't exist, try checking if the resource exists
+    console.error("Error checking registry existence:", error);
+    return false;
+  }
+};
+
+/**
  * Get treasury balance details
+ * Returns null if the treasury hasn't been initialized yet
  */
 export const getTreasuryBalance = async (employerAddr: string): Promise<TreasuryBalance | null> => {
   try {
@@ -98,13 +121,16 @@ export const getTreasuryBalance = async (employerAddr: string): Promise<Treasury
       reserveBalance: BigInt(reserveBalance),
     };
   } catch (error) {
-    console.error("Error fetching treasury balance:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching treasury balance:", parseAptosError(error).message);
+    }
     return null;
   }
 };
 
 /**
  * Get treasury status
+ * Returns null if the treasury hasn't been initialized yet
  */
 export const getTreasuryStatus = async (employerAddr: string): Promise<TreasuryStatus | null> => {
   try {
@@ -123,13 +149,16 @@ export const getTreasuryStatus = async (employerAddr: string): Promise<TreasuryS
       activeStreamCount: BigInt(activeStreamCount),
     };
   } catch (error) {
-    console.error("Error fetching treasury status:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching treasury status:", parseAptosError(error).message);
+    }
     return null;
   }
 };
 
 /**
  * Get treasury health ratio (available / total in basis points)
+ * Returns 0 if the treasury hasn't been initialized yet
  */
 export const getTreasuryHealth = async (employerAddr: string): Promise<bigint> => {
   try {
@@ -141,13 +170,16 @@ export const getTreasuryHealth = async (employerAddr: string): Promise<bigint> =
     });
     return BigInt(result[0] as string);
   } catch (error) {
-    console.error("Error fetching treasury health:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching treasury health:", parseAptosError(error).message);
+    }
     return BigInt(0);
   }
 };
 
 /**
  * Get allocation details for a stream
+ * Returns null if the allocation doesn't exist
  */
 export const getAllocation = async (
   employerAddr: string,
@@ -169,7 +201,9 @@ export const getAllocation = async (
       isActive,
     };
   } catch (error) {
-    console.error("Error fetching allocation:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching allocation:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -321,6 +355,9 @@ export const initializeTreasuryPayload = (
       function: `${MODULES.EMPLOYER_TREASURY}::initialize_treasury`,
       functionArguments: [registryAddr, initialDeposit.toString()],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -336,6 +373,9 @@ export const depositPayload = (
       function: `${MODULES.EMPLOYER_TREASURY}::deposit_funds`,
       functionArguments: [registryAddr, amount.toString()],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -350,6 +390,9 @@ export const withdrawPayload = (
     data: {
       function: `${MODULES.EMPLOYER_TREASURY}::withdraw_funds`,
       functionArguments: [registryAddr, amount.toString()],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };
@@ -367,6 +410,9 @@ export const allocateForStreamPayload = (
       function: `${MODULES.EMPLOYER_TREASURY}::allocate_to_stream`,
       functionArguments: [registryAddr, streamId, amount.toString()],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -383,6 +429,9 @@ export const deallocateFromStreamPayload = (
       function: `${MODULES.EMPLOYER_TREASURY}::deallocate_from_stream`,
       functionArguments: [registryAddr, streamId, unusedAmount.toString()],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -395,6 +444,9 @@ export const emergencyWithdrawPayload = (registryAddr: string): InputTransaction
       function: `${MODULES.EMPLOYER_TREASURY}::emergency_withdraw`,
       functionArguments: [registryAddr],
     },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
+    },
   };
 };
 
@@ -406,6 +458,9 @@ export const setAutoTopupThresholdPayload = (threshold: bigint): InputTransactio
     data: {
       function: `${MODULES.EMPLOYER_TREASURY}::set_auto_topup_threshold`,
       functionArguments: [threshold.toString()],
+    },
+    options: {
+      maxGasAmount: DEFAULT_MAX_GAS,
     },
   };
 };

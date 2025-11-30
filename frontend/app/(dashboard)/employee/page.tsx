@@ -16,7 +16,7 @@ import {
   useWageStreamingEmployee 
 } from "@/hooks/useWageStreaming";
 import { usePhotonBalance, usePhotonOperations } from "@/hooks/usePhotonRewards";
-import { formatAmount, formatAddress, STREAM_STATUS_MAP, getStreamProgress } from "@/types";
+import { formatAmount, formatAddress, STREAM_STATUS_MAP, getStreamProgress, getActualAmount, STREAM_PRECISION } from "@/types";
 import { getExplorerUrl } from "@/lib/aptos/config";
 
 // Withdraw Modal Component
@@ -137,18 +137,19 @@ export default function EmployeeDashboard() {
       const elapsed = now > startTime ? now - startTime : BigInt(0);
       const duration = endTime - startTime;
       const effectiveElapsed = elapsed > duration ? duration : elapsed;
-      const earned = s.ratePerSecond * effectiveElapsed;
+      // Apply PRECISION: earned = (ratePerSecond * effectiveElapsed) / PRECISION
+      const earned = getActualAmount(s.ratePerSecond, effectiveElapsed);
       return acc + (earned > s.totalWithdrawn ? earned - s.totalWithdrawn : BigInt(0));
     }, BigInt(0));
     
-    // Monthly rate calculation
+    // Monthly rate calculation with PRECISION
     const monthlyRate = activeStreams.reduce((acc, s) => 
-      acc + (s.ratePerSecond * BigInt(30 * 24 * 60 * 60)), BigInt(0)
+      acc + getActualAmount(s.ratePerSecond, BigInt(30 * 24 * 60 * 60)), BigInt(0)
     );
 
-    // Daily rate
+    // Daily rate with PRECISION
     const dailyRate = activeStreams.reduce((acc, s) => 
-      acc + (s.ratePerSecond * BigInt(24 * 60 * 60)), BigInt(0)
+      acc + getActualAmount(s.ratePerSecond, BigInt(24 * 60 * 60)), BigInt(0)
     );
 
     return {
@@ -450,7 +451,8 @@ export default function EmployeeDashboard() {
                   const elapsed = now > startTime ? now - startTime : BigInt(0);
                   const duration = endTime - startTime;
                   const effectiveElapsed = elapsed > duration ? duration : elapsed;
-                  const earned = stream.ratePerSecond * effectiveElapsed;
+                  // Apply PRECISION to earned calculation
+                  const earned = getActualAmount(stream.ratePerSecond, effectiveElapsed);
                   const withdrawable = earned > stream.totalWithdrawn ? earned - stream.totalWithdrawn : BigInt(0);
                   const progress = getStreamProgress(stream);
 
@@ -501,7 +503,7 @@ export default function EmployeeDashboard() {
                       {/* Progress bar */}
                       <div className="mb-3">
                         <div className="flex justify-between text-xs text-[#718096] mb-1">
-                          <span>{formatAmount(stream.ratePerSecond * BigInt(86400))} APT/day</span>
+                          <span>{formatAmount(getActualAmount(stream.ratePerSecond, BigInt(86400)))} APT/day</span>
                           <span>{progress.toFixed(1)}% complete</span>
                         </div>
                         <div className="h-2 bg-[#E8DED4] rounded-full overflow-hidden">
@@ -565,7 +567,8 @@ export default function EmployeeDashboard() {
                         const elapsed = now > startTime ? now - startTime : BigInt(0);
                         const duration = endTime - startTime;
                         const effectiveElapsed = elapsed > duration ? duration : elapsed;
-                        const earned = activeStream.ratePerSecond * effectiveElapsed;
+                        // Apply PRECISION to earned calculation
+                        const earned = getActualAmount(activeStream.ratePerSecond, effectiveElapsed);
                         const withdrawable = earned > activeStream.totalWithdrawn ? earned - activeStream.totalWithdrawn : BigInt(0);
                         openWithdrawModal(Number(activeStream.streamId), withdrawable);
                       }

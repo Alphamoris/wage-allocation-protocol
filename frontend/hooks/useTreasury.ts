@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AptosWalletContext";
 import { aptos, octasToApt, CONTRACT_ADDRESS } from "@/lib/aptos/config";
 import {
@@ -34,6 +34,98 @@ import {
 
 // Default registry address (contract address)
 const DEFAULT_REGISTRY = CONTRACT_ADDRESS;
+
+// Hook for wallet APT balance (not treasury, the actual wallet balance)
+export const useWalletBalance = () => {
+  const { address } = useAuth();
+  const [balance, setBalance] = useState<bigint>(BigInt(0));
+  const [loading, setLoading] = useState(true);
+  
+  // Track if mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
+  // Direct fetch function that doesn't depend on any callbacks
+  const fetchBalance = useCallback(async () => {
+    if (!address) {
+      setBalance(BigInt(0));
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Try using getAccountCoinsData from the indexer first
+      const coinsData = await aptos.getAccountCoinsData({
+        accountAddress: address,
+      });
+      
+      // Find APT coin balance
+      const aptCoin = coinsData.find(
+        (coin) => coin.asset_type === "0x1::aptos_coin::AptosCoin"
+      );
+      
+      if (aptCoin && isMountedRef.current) {
+        setBalance(BigInt(aptCoin.amount));
+      } else if (isMountedRef.current) {
+        // No APT found, try direct resource lookup as fallback
+        try {
+          const resource = await aptos.getAccountResource<{ coin: { value: string } }>({
+            accountAddress: address,
+            resourceType: "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
+          });
+          setBalance(BigInt(resource.coin.value));
+        } catch {
+          setBalance(BigInt(0));
+        }
+      }
+    } catch (error) {
+      // Indexer failed, try direct resource lookup
+      try {
+        const resource = await aptos.getAccountResource<{ coin: { value: string } }>({
+          accountAddress: address,
+          resourceType: "0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>",
+        });
+        if (isMountedRef.current) {
+          setBalance(BigInt(resource.coin.value));
+        }
+      } catch {
+        // Account truly has no APT or doesn't exist on this network
+        if (isMountedRef.current) {
+          setBalance(BigInt(0));
+        }
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [address]);
+
+  // Initial fetch and when address changes
+  useEffect(() => {
+    isMountedRef.current = true;
+    setLoading(true);
+    fetchBalance();
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchBalance]);
+
+  // Refresh every 30 seconds
+  useEffect(() => {
+    if (!address) return;
+    
+    const interval = setInterval(fetchBalance, 30000);
+    return () => clearInterval(interval);
+  }, [address, fetchBalance]);
+
+  return {
+    balance,
+    balanceInApt: octasToApt(balance),
+    loading,
+    refetch: fetchBalance,
+  };
+};
 
 // Hook for fetching treasury information
 export const useTreasuryInfo = () => {
@@ -374,9 +466,18 @@ export const useTreasuryOperations = (registryAddr: string = DEFAULT_REGISTRY) =
         await aptos.waitForTransaction({ transactionHash: response.hash });
         return response.hash;
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to initialize treasury"
-        );
+        // Parse the error message for known error codes
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        
+        if (errorMessage.includes("0x645") || errorMessage.includes("1605")) {
+          setError("Protocol registry not initialized. Please contact the administrator to initialize the registry first.");
+        } else if (errorMessage.includes("0x646") || errorMessage.includes("1606")) {
+          setError("Treasury already initialized for this account.");
+        } else if (errorMessage.includes("0x44c") || errorMessage.includes("1100")) {
+          setError("Insufficient treasury balance.");
+        } else {
+          setError(errorMessage || "Failed to initialize treasury");
+        }
         return null;
       } finally {
         setLoading(false);

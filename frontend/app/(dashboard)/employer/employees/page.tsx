@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/contexts/AptosWalletContext";
 import { useEmployerStreams, useWageStreamingEmployer } from "@/hooks/useWageStreaming";
 import { useTreasuryExists } from "@/hooks/useTreasury";
-import { formatAmount, formatAddress, formatDate, STREAM_STATUS_MAP, getStreamProgress } from "@/types";
+import { formatAmount, formatAddress, formatDate, STREAM_STATUS_MAP, getStreamProgress, getActualAmount, STREAM_PRECISION } from "@/types";
 import { getExplorerUrl } from "@/lib/aptos/config";
 import { useRouter } from "next/navigation";
 
@@ -68,11 +68,14 @@ const StreamDetailModal = ({
   const elapsed = now > startTime ? now - startTime : BigInt(0);
   const duration = endTime - startTime;
   const effectiveElapsed = elapsed > duration ? duration : elapsed;
-  const earned = stream.ratePerSecond * effectiveElapsed;
+  // Use getActualAmount to correctly calculate earnings (dividing by PRECISION)
+  const earned = getActualAmount(stream.ratePerSecond, effectiveElapsed);
   const withdrawable = earned > stream.totalWithdrawn ? earned - stream.totalWithdrawn : BigInt(0);
   const progress = getStreamProgress(stream);
-  const totalAmount = stream.ratePerSecond * duration;
+  const totalAmount = getActualAmount(stream.ratePerSecond, duration);
   const remaining = totalAmount > earned ? totalAmount - earned : BigInt(0);
+  // Calculate daily rate properly
+  const dailyRate = getActualAmount(stream.ratePerSecond, BigInt(86400));
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -117,7 +120,7 @@ const StreamDetailModal = ({
           <div className="grid grid-cols-2 gap-3">
             <div className="p-4 bg-[#FAF6F1] rounded-xl">
               <label className="text-xs text-[#718096]">Rate per Day</label>
-              <p className="font-mono font-bold text-[#1A1A2E]">{formatAmount(stream.ratePerSecond * BigInt(86400))} APT</p>
+              <p className="font-mono font-bold text-[#1A1A2E]">{formatAmount(dailyRate)} APT</p>
             </div>
             <div className="p-4 bg-[#FAF6F1] rounded-xl">
               <label className="text-xs text-[#718096]">Total Amount</label>
@@ -226,9 +229,10 @@ export default function EmployeesPage() {
     const active = streams.filter(s => s.status === 1).length;
     const paused = streams.filter(s => s.status === 2).length;
     const completed = streams.filter(s => s.status === 0 || s.status === 3).length;
+    // Calculate total value using getActualAmount (rate * duration / PRECISION)
     const totalValue = streams.reduce((acc, s) => {
       const duration = BigInt(s.endTime) - BigInt(s.startTime);
-      return acc + (s.ratePerSecond * duration);
+      return acc + getActualAmount(s.ratePerSecond, duration);
     }, BigInt(0));
 
     return { total, active, paused, completed, totalValue };
@@ -501,7 +505,7 @@ export default function EmployeesPage() {
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-mono text-sm font-semibold text-[#1A1A2E]">
-                            {formatAmount(stream.ratePerSecond * BigInt(86400))} APT
+                            {formatAmount(getActualAmount(stream.ratePerSecond, BigInt(86400)))} APT
                           </p>
                           <p className="text-xs text-[#718096]">per day</p>
                         </td>

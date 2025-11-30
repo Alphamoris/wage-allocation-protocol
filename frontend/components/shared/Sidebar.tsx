@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { useUserRole } from "@/contexts/AptosWalletContext";
+import { useWalletBalance } from "@/hooks/useTreasury";
 import { NETWORK } from "@/lib/aptos/config";
 import {
   LayoutDashboard,
@@ -24,7 +25,8 @@ import {
   X,
   Copy,
   Check,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from "lucide-react";
 import Image from "next/image";
 
@@ -40,6 +42,7 @@ export function Sidebar({ role }: SidebarProps) {
   const router = useRouter();
   const { account, disconnect } = useWallet();
   const { setRole } = useUserRole();
+  const { balanceInApt, loading: balanceLoading, refetch: refetchBalance } = useWalletBalance();
 
   const address = account?.address?.toString() || "";
   const shortAddress = address 
@@ -159,30 +162,49 @@ export function Sidebar({ role }: SidebarProps) {
 
       {/* Wallet Info & Logout */}
       <div className="p-3 border-t border-[#E8DED4]/60 space-y-2">
-        {/* Wallet Address */}
+        {/* Wallet Address & Balance */}
         {account?.address && !isCollapsed && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-[#FAF6F1] rounded-xl">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E85A4F] to-[#F4A259] flex items-center justify-center flex-shrink-0">
-              <Wallet size={14} className="text-white" />
+          <div className="px-3 py-2 bg-[#FAF6F1] rounded-xl space-y-2">
+            {/* Address Row */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E85A4F] to-[#F4A259] flex items-center justify-center flex-shrink-0">
+                <Wallet size={14} className="text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] text-[#718096]">Connected</div>
+                <div className="text-xs font-mono text-[#1A1A2E] truncate">{shortAddress}</div>
+              </div>
+              <button 
+                onClick={copyAddress}
+                className="p-1.5 hover:bg-white rounded-lg transition-colors"
+                title="Copy address"
+              >
+                {copied ? <Check size={14} className="text-[#2D9F6C]" /> : <Copy size={14} className="text-[#718096]" />}
+              </button>
+              <button 
+                onClick={() => window.open(`https://explorer.aptoslabs.com/account/${address}?network=${NETWORK.toLowerCase()}`, "_blank")}
+                className="p-1.5 hover:bg-white rounded-lg transition-colors"
+                title="View on explorer"
+              >
+                <ExternalLink size={14} className="text-[#718096]" />
+              </button>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] text-[#718096]">Connected</div>
-              <div className="text-xs font-mono text-[#1A1A2E] truncate">{shortAddress}</div>
+            {/* Balance Row */}
+            <div className="flex items-center justify-between pt-1 border-t border-[#E8DED4]/50">
+              <div className="flex items-center gap-2">
+                <div className="text-[10px] text-[#718096]">Balance</div>
+                <span className="text-sm font-semibold text-[#1A1A2E]">
+                  {balanceLoading ? "..." : `${balanceInApt.toFixed(4)} APT`}
+                </span>
+              </div>
+              <button 
+                onClick={refetchBalance}
+                className="p-1 hover:bg-white rounded-lg transition-colors"
+                title="Refresh balance"
+              >
+                <RefreshCw size={12} className={cn("text-[#718096]", balanceLoading && "animate-spin")} />
+              </button>
             </div>
-            <button 
-              onClick={copyAddress}
-              className="p-1.5 hover:bg-white rounded-lg transition-colors"
-              title="Copy address"
-            >
-              {copied ? <Check size={14} className="text-[#2D9F6C]" /> : <Copy size={14} className="text-[#718096]" />}
-            </button>
-            <button 
-              onClick={() => window.open(`https://explorer.aptoslabs.com/account/${address}?network=${NETWORK.toLowerCase()}`, "_blank")}
-              className="p-1.5 hover:bg-white rounded-lg transition-colors"
-              title="View on explorer"
-            >
-              <ExternalLink size={14} className="text-[#718096]" />
-            </button>
           </div>
         )}
         

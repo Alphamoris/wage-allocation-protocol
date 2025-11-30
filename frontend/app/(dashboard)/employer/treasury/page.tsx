@@ -143,7 +143,7 @@ const WithdrawModal = ({
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="block text-sm font-medium text-[#4A5568]">Amount (APT)</label>
-              <button type="button" onClick={handleMax} className="text-xs text-[#E85A4F] hover:underline">
+              <button type="button" onClick={handleMax} className="text-xs text-[#E85A4F] hover:underline cursor-pointer">
                 Max: {formatAmount(maxAmount)} APT
               </button>
             </div>

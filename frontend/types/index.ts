@@ -23,6 +23,9 @@ export const TREASURY_STATUS_MAP: Record<number, TreasuryStatus> = {
 
 // ============ STREAM TYPES ============
 
+// Precision for wage rate calculations (matches contract PRECISION = 10^8)
+export const STREAM_PRECISION = BigInt(100_000_000);
+
 export interface StreamInfo {
   streamId: string;
   employer: string;
@@ -33,6 +36,7 @@ export interface StreamInfo {
   startTime: number;
   endTime: number;
   status: number;
+  description?: string; // Job description
 }
 
 export interface StreamDisplayInfo extends StreamInfo {
@@ -185,6 +189,13 @@ export const formatAmount = (octas: bigint | number, decimals: number = 2): stri
   });
 };
 
+// Convert rate-per-second based calculation to actual APT amount
+// The contract stores rate_per_second = (amount * PRECISION) / duration
+// So to get actual amount: (rate * duration) / PRECISION
+export const getActualAmount = (ratePerSecond: bigint, durationSeconds: bigint): bigint => {
+  return (ratePerSecond * durationSeconds) / STREAM_PRECISION;
+};
+
 export const formatUSD = (octas: bigint | number, aptPrice: number = 10): string => {
   const apt = Number(octas) / 100_000_000;
   const usd = apt * aptPrice;
@@ -240,16 +251,18 @@ export const calculateWithdrawable = (stream: StreamInfo): bigint => {
   const now = Math.floor(Date.now() / 1000);
   const effectiveEnd = Math.min(now, stream.endTime);
   const duration = Math.max(0, effectiveEnd - stream.startTime);
-  const earned = BigInt(duration) * stream.ratePerSecond;
-  return earned - stream.totalWithdrawn;
+  // Apply PRECISION: earned = (ratePerSecond * duration) / PRECISION
+  const earned = getActualAmount(stream.ratePerSecond, BigInt(duration));
+  return earned > stream.totalWithdrawn ? earned - stream.totalWithdrawn : BigInt(0);
 };
 
+// Helper functions that also need PRECISION applied
 export const getRatePerHour = (ratePerSecond: bigint): bigint => {
-  return ratePerSecond * BigInt(3600);
+  return getActualAmount(ratePerSecond, BigInt(3600));
 };
 
 export const getRatePerDay = (ratePerSecond: bigint): bigint => {
-  return ratePerSecond * BigInt(86400);
+  return getActualAmount(ratePerSecond, BigInt(86400));
 };
 
 export const getDurationInDays = (startTime: number, endTime: number): number => {

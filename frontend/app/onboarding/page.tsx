@@ -141,7 +141,7 @@ export default function OnboardingPage() {
                 whileHover={{ y: -10, transition: { duration: 0.3 } }}
                 className="perspective-1000"
               >
-                <button onClick={() => handleRoleSelect("employer")} className="block h-full w-full text-left">
+                <button onClick={() => handleRoleSelect("employer")} className="block h-full w-full text-left cursor-pointer">
                   <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl border border-[#E8DED4] shadow-xl shadow-[#E85A4F]/10 h-full p-8 md:p-10 flex flex-col items-center gap-8 group cursor-pointer overflow-hidden hover:shadow-2xl hover:shadow-[#E85A4F]/15 transition-all duration-300">
                     {/* Animated Background Pattern */}
                     <div className="absolute inset-0 opacity-20">
@@ -243,7 +243,7 @@ export default function OnboardingPage() {
                 whileHover={{ y: -10, transition: { duration: 0.3 } }}
                 className="perspective-1000"
               >
-                <button onClick={() => handleRoleSelect("employee")} className="block h-full w-full text-left">
+                <button onClick={() => handleRoleSelect("employee")} className="block h-full w-full text-left cursor-pointer">
                   <div className="relative bg-white/95 backdrop-blur-xl rounded-3xl border border-[#E8DED4] shadow-xl shadow-[#6BB3D9]/10 h-full p-8 md:p-10 flex flex-col items-center gap-8 group cursor-pointer overflow-hidden hover:shadow-2xl hover:shadow-[#6BB3D9]/15 transition-all duration-300">
                     {/* Animated Background Pattern */}
                     <div className="absolute inset-0 opacity-20">

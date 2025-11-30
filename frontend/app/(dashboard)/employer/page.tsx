@@ -18,7 +18,7 @@ import {
   useRegistryStats,
   useWageStreamingEmployer 
 } from "@/hooks/useWageStreaming";
-import { formatAmount, formatAddress, formatTimeAgo, STREAM_STATUS_MAP } from "@/types";
+import { formatAmount, formatAddress, formatTimeAgo, STREAM_STATUS_MAP, getActualAmount, STREAM_PRECISION } from "@/types";
 import { getExplorerUrl } from "@/lib/aptos/config";
 
 // Create Stream Modal Component
@@ -148,9 +148,10 @@ export default function EmployerDashboard() {
   const dashboardStats = useMemo(() => {
     const activeStreams = streams.filter(s => s.status === 1).length;
     const totalStreams = streams.length;
+    // Use getActualAmount for correct monthly burn calculation
     const monthlyBurn = streams.reduce((acc, s) => {
       if (s.status === 1) {
-        return acc + (s.ratePerSecond * BigInt(30 * 24 * 60 * 60));
+        return acc + getActualAmount(s.ratePerSecond, BigInt(30 * 24 * 60 * 60));
       }
       return acc;
     }, BigInt(0));
@@ -197,7 +198,7 @@ export default function EmployerDashboard() {
       name: formatAddress(stream.employee),
       fullAddress: stream.employee,
       action: STREAM_STATUS_MAP[stream.status] || "unknown",
-      amount: `${formatAmount(stream.ratePerSecond * BigInt(86400))} APT/day`,
+      amount: `${formatAmount(getActualAmount(stream.ratePerSecond, BigInt(86400)))} APT/day`,
       time: formatTimeAgo(stream.startTime),
       type: stream.status === 1 ? "active" : stream.status === 2 ? "paused" : "other",
       streamId: Number(stream.streamId),
@@ -490,7 +491,9 @@ export default function EmployerDashboard() {
                 
                 <div className="absolute bottom-0 left-0 right-0 flex items-end justify-around h-full pt-4">
                   {streams.length > 0 ? streams.slice(0, 7).map((stream, i) => {
-                    const heightPercent = Math.min(90, Math.max(20, Number(stream.ratePerSecond) / 1000000 * 100));
+                    // Get actual daily rate and scale for chart height
+                    const dailyRate = Number(getActualAmount(stream.ratePerSecond, BigInt(86400)));
+                    const heightPercent = Math.min(90, Math.max(20, dailyRate * 10)); // Scale appropriately
                     return (
                       <motion.div
                         key={i}
@@ -516,7 +519,7 @@ export default function EmployerDashboard() {
                 transition={{ delay: 1 }}
               >
                 <div className="text-4xl md:text-5xl font-bold font-mono bg-gradient-to-r from-[#E85A4F] via-[#F4A259] to-[#6BB3D9] bg-clip-text text-transparent">
-                  {formatAmount(streams.reduce((acc, s) => s.status === 1 ? acc + s.ratePerSecond * BigInt(30 * 86400) : acc, BigInt(0)))} APT
+                  {formatAmount(streams.reduce((acc, s) => s.status === 1 ? acc + getActualAmount(s.ratePerSecond, BigInt(30 * 86400)) : acc, BigInt(0)))} APT
                 </div>
                 <p className="text-[#718096] text-sm mt-2">Monthly Wage Distribution</p>
               </motion.div>

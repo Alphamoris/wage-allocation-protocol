@@ -1,4 +1,4 @@
-import { aptos, MODULES, CONTRACT_ADDRESS } from "./config";
+import { aptos, MODULES, CONTRACT_ADDRESS, shouldLogError, parseAptosError } from "./config";
 import { InputTransactionData } from "@aptos-labs/wallet-adapter-react";
 
 // Types
@@ -86,7 +86,9 @@ export const getPhotonRegistryStats = async (
       activeCampaigns: BigInt(activeCampaigns),
     };
   } catch (error) {
-    console.error("Error fetching registry stats:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching registry stats:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -118,13 +120,16 @@ export const getCampaignInfo = async (
       totalParticipants: BigInt(totalParticipants),
     };
   } catch (error) {
-    console.error("Error fetching campaign info:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching campaign info:", parseAptosError(error).message);
+    }
     return null;
   }
 };
 
 /**
  * Get employee rewards summary
+ * Returns null if the employee hasn't initialized their rewards account yet
  */
 export const getEmployeeRewardsSummary = async (
   employeeAddr: string
@@ -155,7 +160,9 @@ export const getEmployeeRewardsSummary = async (
       engagementScore: BigInt(engagementScore),
     };
   } catch (error) {
-    console.error("Error fetching employee rewards summary:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching employee rewards summary:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -185,7 +192,9 @@ export const getParticipationInfo = async (
       rewardsClaimed: BigInt(rewardsClaimed),
     };
   } catch (error) {
-    console.error("Error fetching participation info:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching participation info:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -216,7 +225,9 @@ export const getStreakInfo = async (
       streakRewardsEarned: BigInt(streakRewardsEarned),
     };
   } catch (error) {
-    console.error("Error fetching streak info:", error);
+    if (shouldLogError(error)) {
+      console.error("Error fetching streak info:", parseAptosError(error).message);
+    }
     return null;
   }
 };
@@ -234,7 +245,9 @@ export const isPhotonEnabled = async (registryAddr: string): Promise<boolean> =>
     });
     return result[0] as boolean;
   } catch (error) {
-    console.error("Error checking Photon enabled status:", error);
+    if (shouldLogError(error)) {
+      console.error("Error checking Photon enabled status:", parseAptosError(error).message);
+    }
     return false;
   }
 };

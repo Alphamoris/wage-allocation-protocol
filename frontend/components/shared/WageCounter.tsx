@@ -1,33 +1,142 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { motion, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import { Button } from "../ui/button";
-import { Sparkles, TrendingUp, Zap, Clock, ArrowUpRight } from "lucide-react";
+import { Sparkles, TrendingUp, Zap, Clock, ArrowUpRight, Loader2 } from "lucide-react";
+import { useEmployeeStreams, useWageStreamingEmployee } from "@/hooks/useWageStreaming";
+import { formatAmount, STREAM_PRECISION } from "@/types";
 
 export function WageCounter() {
-  const [wage, setWage] = useState(1250.0);
-  const springWage = useSpring(1250.0, { stiffness: 100, damping: 15 });
-  const displayWage = useTransform(springWage, (latest) => latest.toFixed(4));
-  const [progress, setProgress] = useState(45);
-  const [showPulse, setShowPulse] = useState(false);
+  const { streams, loading: streamsLoading } = useEmployeeStreams();
+  const { withdrawWages, loading: withdrawLoading } = useWageStreamingEmployee();
+  
+  // Calculate real-time wage from active streams
+  const streamData = useMemo(() => {
+    const activeStreams = streams.filter(s => s.status === 1);
+    
+    // Total rate per second across all active streams
+    const totalRatePerSecond = activeStreams.reduce((acc, s) => acc + s.ratePerSecond, BigInt(0));
+    
+    // Calculate current withdrawable (what's been earned but not withdrawn)
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    
+    let totalEarned = BigInt(0);
+    let totalWithdrawn = BigInt(0);
+    let totalDeposited = BigInt(0);
+    
+    activeStreams.forEach(s => {
+      const startTime = BigInt(s.startTime);
+      const endTime = BigInt(s.endTime);
+      const elapsed = now > startTime ? now - startTime : BigInt(0);
+      const duration = endTime - startTime;
+      const effectiveElapsed = elapsed > duration ? duration : elapsed;
+      // Apply PRECISION: earned = (ratePerSecond * elapsed) / PRECISION to get octas
+      totalEarned += (s.ratePerSecond * effectiveElapsed) / STREAM_PRECISION;
+      totalWithdrawn += s.totalWithdrawn;
+      totalDeposited += s.totalDeposited;
+    });
+    
+    // Calculate progress (total earned / total deposited)
+    const progress = totalDeposited > 0 
+      ? Number((totalEarned * BigInt(100)) / totalDeposited) 
+      : 0;
+    
+    return {
+      ratePerSecond: totalRatePerSecond,
+      totalEarned,
+      totalWithdrawn,
+      totalDeposited,
+      withdrawable: totalEarned > totalWithdrawn ? totalEarned - totalWithdrawn : BigInt(0),
+      progress: Math.min(progress, 100),
+      activeCount: activeStreams.length,
+      firstStreamId: activeStreams.length > 0 ? Number(activeStreams[0].streamId) : null,
+    };
+  }, [streams]);
 
+  // Convert to APT for display (octas = 10^8)
+  const withdrawableApt = Number(streamData.withdrawable) / 100_000_000;
+  // Also divide ratePerSecond by PRECISION and then by octas to get APT/second
+  const ratePerSecondApt = Number(streamData.ratePerSecond) / Number(STREAM_PRECISION) / 100_000_000;
+  
+  const [displayWage, setDisplayWage] = useState(withdrawableApt);
+  const springWage = useSpring(withdrawableApt, { stiffness: 100, damping: 15 });
+  const formattedWage = useTransform(springWage, (latest) => latest.toFixed(6));
+  const [showPulse, setShowPulse] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState("00:00:00");
+
+  // Update wage in real-time based on rate per second
   useEffect(() => {
+    if (streamData.activeCount === 0) return;
+    
     const interval = setInterval(() => {
-      setWage((prev) => prev + 0.0015);
-      setProgress((prev) => Math.min(prev + 0.01, 100));
+      setDisplayWage((prev) => prev + ratePerSecondApt / 10); // Update every 100ms
       setShowPulse(true);
       setTimeout(() => setShowPulse(false), 200);
     }, 100);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [ratePerSecondApt, streamData.activeCount]);
 
+  // Track elapsed time for first stream
   useEffect(() => {
-    springWage.set(wage);
-  }, [wage, springWage]);
+    if (streams.length === 0) return;
+    
+    const activeStream = streams.find(s => s.status === 1);
+    if (!activeStream) return;
+    
+    const updateTime = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const elapsed = now - activeStream.startTime;
+      const hours = Math.floor(elapsed / 3600);
+      const minutes = Math.floor((elapsed % 3600) / 60);
+      const seconds = elapsed % 60;
+      setElapsedTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+    };
+    
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, [streams]);
 
-  const digits = displayWage.get().split('');
+  // Sync spring with display wage
+  useEffect(() => {
+    springWage.set(displayWage);
+  }, [displayWage, springWage]);
+
+  // Reset display wage when streams change
+  useEffect(() => {
+    setDisplayWage(withdrawableApt);
+  }, [withdrawableApt]);
+
+  const digits = formattedWage.get().split('');
+  
+  // Calculate stats
+  const hourlyRate = ratePerSecondApt * 3600;
+  const dailyRate = ratePerSecondApt * 86400;
+  const monthlyRate = dailyRate * 30;
+
+  // Handle withdraw
+  const handleWithdraw = async () => {
+    if (!streamData.firstStreamId) return;
+    try {
+      await withdrawWages(streamData.firstStreamId);
+    } catch (error) {
+      console.error("Withdraw failed:", error);
+    }
+  };
+
+  if (streamsLoading) {
+    return (
+      <div className="w-full max-w-2xl mx-auto flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E85A4F]" />
+      </div>
+    );
+  }
+
+  if (streamData.activeCount === 0) {
+    return null; // No active streams, don't show counter
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto relative">
@@ -84,7 +193,7 @@ export function WageCounter() {
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF6F1] border border-[#F4A259]/30">
               <Clock size={14} className="text-[#F4A259]" />
-              <span className="text-xs font-mono text-[#4A5568]">08:24:36</span>
+              <span className="text-xs font-mono text-[#4A5568]">{elapsedTime}</span>
             </div>
           </motion.div>
           
@@ -109,7 +218,7 @@ export function WageCounter() {
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
-                USDC
+                APT
               </motion.span>
               
               {/* Animated Digits */}
@@ -141,7 +250,7 @@ export function WageCounter() {
               transition={{ duration: 2, repeat: Infinity }}
             >
               <ArrowUpRight size={12} className="text-[#2D9F6C]" />
-              <span className="text-xs font-mono text-[#2D9F6C]">+0.15/s</span>
+              <span className="text-xs font-mono text-[#2D9F6C]">+{ratePerSecondApt.toFixed(8)}/s</span>
             </motion.div>
           </div>
 
@@ -153,13 +262,13 @@ export function WageCounter() {
                   <TrendingUp size={16} className="text-[#E85A4F]" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xs text-[#718096]">Today's Earnings</div>
-                  <div className="text-sm font-semibold text-[#1A1A2E]">{(wage - 1250 + 850).toFixed(2)} USDC</div>
+                  <div className="text-xs text-[#718096]">Withdrawable</div>
+                  <div className="text-sm font-semibold text-[#1A1A2E]">{displayWage.toFixed(4)} APT</div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-[#718096]">Daily Target</div>
-                <div className="text-sm font-mono font-bold text-[#F4A259]">{progress.toFixed(0)}%</div>
+                <div className="text-xs text-[#718096]">Stream Progress</div>
+                <div className="text-sm font-mono font-bold text-[#F4A259]">{streamData.progress.toFixed(1)}%</div>
               </div>
             </div>
             
@@ -168,7 +277,7 @@ export function WageCounter() {
               <motion.div 
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#E85A4F] via-[#F4A259] to-[#F2B5D4] rounded-full"
                 initial={{ width: "0%" }}
-                animate={{ width: `${progress}%` }}
+                animate={{ width: `${streamData.progress}%` }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
               />
               
@@ -182,7 +291,7 @@ export function WageCounter() {
               {/* Progress marker */}
               <motion.div
                 className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg border-2 border-[#E85A4F]"
-                style={{ left: `calc(${progress}% - 10px)` }}
+                style={{ left: `calc(${streamData.progress}% - 10px)` }}
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
               />
@@ -191,9 +300,9 @@ export function WageCounter() {
             {/* Mini stats */}
             <div className="grid grid-cols-3 gap-2 pt-2">
               {[
-                { label: "This Hour", value: "12.50 USDC", color: "text-[#E85A4F]" },
-                { label: "This Week", value: "5,840 USDC", color: "text-[#F4A259]" },
-                { label: "This Month", value: "24.5K USDC", color: "text-[#6BB3D9]" },
+                { label: "Per Hour", value: `${hourlyRate.toFixed(4)} APT`, color: "text-[#E85A4F]" },
+                { label: "Per Day", value: `${dailyRate.toFixed(4)} APT`, color: "text-[#F4A259]" },
+                { label: "Per Month", value: `${monthlyRate.toFixed(2)} APT`, color: "text-[#6BB3D9]" },
               ].map((stat, i) => (
                 <motion.div 
                   key={i}
@@ -217,10 +326,16 @@ export function WageCounter() {
             <Button 
               size="xl" 
               className="w-full text-lg group relative overflow-hidden"
+              onClick={handleWithdraw}
+              disabled={withdrawLoading || streamData.withdrawable === BigInt(0)}
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
-                <Zap size={20} className="group-hover:animate-pulse" />
-                Claim {wage.toFixed(2)} USDC
+                {withdrawLoading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Zap size={20} className="group-hover:animate-pulse" />
+                )}
+                {withdrawLoading ? "Withdrawing..." : `Claim ${displayWage.toFixed(4)} APT`}
                 <motion.span
                   className="absolute inset-0 bg-white/20 rounded-lg"
                   initial={{ x: "-100%" }}
