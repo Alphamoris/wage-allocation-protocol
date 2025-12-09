@@ -59,10 +59,10 @@ export function DemoWageCounter() {
   return (
     <div className="w-full max-w-2xl mx-auto relative">
       {/* Outer Glow Ring - Light Theme */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-[#E85A4F] via-[#F4A259] to-[#F2B5D4] rounded-[2rem] opacity-20 blur-xl animate-pulse" />
+      <div className="absolute -inset-1 bg-gradient-to-r from-[#E85A4F] via-[#F4A259] to-[#F2B5D4] rounded-3xl sm:rounded-4xl opacity-20 blur-xl animate-pulse" />
       
       {/* Main Card - Light Theme */}
-      <div className="relative bg-white rounded-[2rem] p-8 md:p-12 overflow-hidden border border-[#E8DED4]/60 shadow-xl">
+      <div className="relative bg-white rounded-3xl sm:rounded-4xl p-4 sm:p-6 md:p-12 overflow-hidden border border-wap-border/60 shadow-xl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Morphing blob */}
@@ -94,7 +94,7 @@ export function DemoWageCounter() {
           <div className="absolute inset-0 grid-lines opacity-20" />
         </div>
         
-        <div className="relative z-10 flex flex-col items-center text-center space-y-8">
+        <div className="relative z-10 flex flex-col items-center text-center space-y-4 sm:space-y-6 md:space-y-8">
           {/* Status Badge */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -132,7 +132,7 @@ export function DemoWageCounter() {
             
             <div className="flex items-baseline justify-center font-mono">
               <motion.span 
-                className="text-2xl md:text-4xl mr-3 text-[#E85A4F] font-semibold"
+                className="text-lg sm:text-2xl md:text-4xl mr-2 sm:mr-3 text-[#E85A4F] font-semibold"
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
               >
@@ -144,8 +144,8 @@ export function DemoWageCounter() {
                 {digits.map((digit, i) => (
                   <motion.span
                     key={i}
-                    className={`text-6xl sm:text-7xl md:text-9xl font-bold ${
-                      digit === '.' ? 'text-[#718096] mx-1' : 'text-[#1A1A2E]'
+                    className={`text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold ${
+                      digit === '.' ? 'text-[#718096] mx-0.5 sm:mx-1' : 'text-[#1A1A2E]'
                     }`}
                     style={{ 
                       fontVariantNumeric: "tabular-nums",
@@ -161,9 +161,9 @@ export function DemoWageCounter() {
               </div>
             </div>
             
-            {/* Rate indicator */}
+            {/* Rate indicator - hidden on very small screens */}
             <motion.div 
-              className="absolute -right-4 top-0 flex items-center gap-1 px-2 py-1 rounded-full bg-[#2D9F6C]/10 border border-[#2D9F6C]/30"
+              className="hidden sm:flex absolute -right-4 top-0 items-center gap-1 px-2 py-1 rounded-full bg-[#2D9F6C]/10 border border-[#2D9F6C]/30"
               animate={{ y: [0, -3, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
@@ -173,20 +173,21 @@ export function DemoWageCounter() {
           </div>
 
           {/* Progress Section */}
-          <div className="w-full max-w-md space-y-4 px-4">
+          <div className="w-full max-w-md space-y-3 sm:space-y-4 px-0 sm:px-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#E85A4F]/10 flex items-center justify-center">
-                  <TrendingUp size={16} className="text-[#E85A4F]" />
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-[#E85A4F]/10 flex items-center justify-center">
+                  <TrendingUp size={14} className="text-[#E85A4F] sm:hidden" />
+                  <TrendingUp size={16} className="text-[#E85A4F] hidden sm:block" />
                 </div>
                 <div className="text-left">
-                  <div className="text-xs text-[#718096]">Withdrawable</div>
-                  <div className="text-sm font-semibold text-[#1A1A2E]">{displayWage.toFixed(4)} APT</div>
+                  <div className="text-[10px] sm:text-xs text-[#718096]">Withdrawable</div>
+                  <div className="text-xs sm:text-sm font-semibold text-[#1A1A2E]">{displayWage.toFixed(4)} APT</div>
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-[#718096]">Stream Progress</div>
-                <div className="text-sm font-mono font-bold text-[#F4A259]">{DEMO_CONFIG.progress.toFixed(1)}%</div>
+                <div className="text-[10px] sm:text-xs text-[#718096]">Stream Progress</div>
+                <div className="text-xs sm:text-sm font-mono font-bold text-[#F4A259]">{DEMO_CONFIG.progress.toFixed(1)}%</div>
               </div>
             </div>
             
@@ -216,7 +217,7 @@ export function DemoWageCounter() {
             </div>
             
             {/* Mini stats */}
-            <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="grid grid-cols-3 gap-1 sm:gap-2 pt-2">
               {[
                 { label: "Per Hour", value: `${DEMO_CONFIG.hourlyRate.toFixed(4)} APT`, color: "text-[#E85A4F]" },
                 { label: "Per Day", value: `${DEMO_CONFIG.dailyRate.toFixed(4)} APT`, color: "text-[#F4A259]" },
@@ -224,11 +225,11 @@ export function DemoWageCounter() {
               ].map((stat, i) => (
                 <motion.div 
                   key={i}
-                  className="text-center p-2 rounded-lg bg-[#FAF6F1] border border-[#E8DED4]/40"
+                  className="text-center p-1.5 sm:p-2 rounded-lg bg-[#FAF6F1] border border-[#E8DED4]/40"
                   whileHover={{ scale: 1.05, borderColor: "rgba(232, 90, 79, 0.3)" }}
                 >
-                  <div className={`text-sm font-mono font-bold ${stat.color}`}>{stat.value}</div>
-                  <div className="text-[10px] text-[#718096]">{stat.label}</div>
+                  <div className={`text-[10px] sm:text-sm font-mono font-bold ${stat.color}`}>{stat.value}</div>
+                  <div className="text-[8px] sm:text-[10px] text-[#718096]">{stat.label}</div>
                 </motion.div>
               ))}
             </div>
@@ -239,11 +240,11 @@ export function DemoWageCounter() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
-            className="w-full max-w-sm"
+            className="w-full max-w-xs sm:max-w-sm"
           >
             <Button 
-              size="xl" 
-              className="w-full text-lg group relative overflow-hidden"
+              size="lg" 
+              className="w-full text-base sm:text-lg group relative overflow-hidden"
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
                 <Zap size={20} className="group-hover:animate-pulse" />
